@@ -471,7 +471,7 @@ void writeHeader(int fd, const signature & sig, EVP_MD_CTX & ctx)
   if (!buff.length())
     {
 
-      unsigned t = (64 + (2 * _binary_blob_bin_len)) / BLOCKSIZE;
+      unsigned t = (64 + _binary_blob_bin_len) / BLOCKSIZE;
 
       while(t)
 	{
