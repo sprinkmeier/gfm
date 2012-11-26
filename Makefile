@@ -6,10 +6,13 @@ GIT_TAG=gfm-$(shell git describe --tags --dirty --long)
 default: gfm
 
 clean:
-	-rm *.o gfm
+	-rm *.o git.h
 	-rm -rf .deps
 
-remake: clean
+cleaner: clean
+	-rm gfm
+
+remake: cleaner
 	$(MAKE)
 
 blob.o::
@@ -38,6 +41,6 @@ gfm: gfm.o  blob.o
 	@mv  $*.d  .deps/$*.d
 	@echo $@: Makefile >> .deps/$*.d
 
-.PHONY: default clean remake
+.PHONY: default clean cleaner remake
 
 -include .deps/*.d
