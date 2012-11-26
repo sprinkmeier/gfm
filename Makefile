@@ -10,7 +10,7 @@ EXPORT=./bzr_export.pl
 default: gfm
 
 clean:
-	-rm tmp tmp.h gfm
+	-rm *.o gfm
 
 remake: clean default
 
@@ -25,9 +25,7 @@ blob.o::
 		--output elf64-x86-64 \
 		--binary-architecture i386 \
 		$*.bin $@
-#	rm $*.bin
-
-gfm.o: gfm.cc gfa.hh tmp.h
+	rm $*.bin
 
 gfm: gfm.o blob.o
 
