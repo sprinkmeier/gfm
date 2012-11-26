@@ -1,3 +1,4 @@
 gfm
 *.o
 .deps/
+git.h

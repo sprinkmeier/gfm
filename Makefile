@@ -2,7 +2,6 @@ CC=$(CXX)
 
 LDLIBS += $(shell pkg-config --libs openssl)
 GIT_TAG=gfm-$(shell git describe --tags --dirty --long)
-CXXFLAGS+=-DGIT_TAG='"$(GIT_TAG)"'
 
 default: gfm
 
@@ -26,16 +25,18 @@ blob.o::
 		$*.bin $@
 	rm $*.bin
 
-gfm: gfm.o blob.o
+git.h::
+	echo '#define GIT_TAG "$(GIT_TAG)"' > $@
+
+gfm.o: git.h
+
+gfm: gfm.o  blob.o
 
 %.o: %.cc
 	test -d .deps || mkdir .deps
 	$(COMPILE.cc) -MMD $(OUTPUT_OPTION) $<
-	@sed -e 's|.*:|$*.o:|' < $*.d > .deps/$*.d
-	@sed -e 's/.*://' -e 's/\\$$//' < $*.d | fmt -1 | \
-	  sed -e 's/^ *//' -e 's/$$/:/' >> .deps/$*.d
+	@mv  $*.d  .deps/$*.d
 	@echo $@: Makefile >> .deps/$*.d
-	@rm -f $*.d
 
 .PHONY: default clean remake
 
