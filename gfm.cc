@@ -464,11 +464,11 @@ std::string MakeFilename(const std::string & stub, int num)
 void writeHeader(int fd, const signature & sig, EVP_MD_CTX & ctx)
 {
   // This static buffer is reused between files.
-  // it is not cleaned up!
-  static char * buff = 0;
+    static std::string buff;
+//  static char * buff = 0;
   static uint32_t s = BLOCKSIZE;
 
-  if (!buff)
+  if (!buff.length())
     {
 
       unsigned t = (64 + (2 * _binary_blob_bin_len)) / BLOCKSIZE;
@@ -479,19 +479,19 @@ void writeHeader(int fd, const signature & sig, EVP_MD_CTX & ctx)
 	  s <<= 1;
 	}
 
-      buff = (char *)calloc(s,1); // drip
       // magic here!!
-      strcpy(buff, "dd bs=64 skip=1 < FILE > gfm.tar.xz"
-	     "\n\n\n\n\n\n\n\n\n\n\n\n");
-      memcpy(buff+MAGIC,
+      buff = "dd bs=64 skip=1 < FILE | unxz > gfm.tar"
+	     "\n\n\n\n\n\n\n\n\n\n\n\n";
+      buff.resize(s);
+      memcpy(&buff[MAGIC],
              &_binary_blob_bin_start,
              _binary_blob_bin_len);
     }
-  memcpy(buff+MAGIC-8, &s,   4);
-  memcpy(buff+MAGIC-4, &sig, 4);
-  attest(write(fd,buff,s) == (ssize_t)s,
+  memcpy(&buff[MAGIC-8], &s,   4);
+  memcpy(&buff[MAGIC-4], &sig, 4);
+  attest(write(fd,&buff[0],s) == (ssize_t)s,
 	 "Unable to write signature");
-  EVP_DigestUpdate(&ctx, buff, s);
+  EVP_DigestUpdate(&ctx, &buff[0], s);
 
 }
 
