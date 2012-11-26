@@ -13,10 +13,10 @@ remake: clean
 	$(MAKE)
 
 blob.o::
-	git archive --prefix $(GIT_TAG)/ --format tar HEAD > $(GIT_TAG).tar
+	git clone . ${GIT_TAG}
 	git diff > $(GIT_TAG).diff
 	tar --create --file - --remove-files \
-		$(GIT_TAG).tar $(GIT_TAG).diff \
+		$(GIT_TAG).diff ${GIT_TAG} \
 		| xz > $*.bin
 	objcopy \
 		--input binary \
