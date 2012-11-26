@@ -1,4 +1,8 @@
-.PHONY: default clean remake
+CC=$(CXX)
+
+LDLIBS += $(shell pkg-config --libs openssl)
+
+GIT_TAG=$(shell git describe --tags --dirty --long)
 
 #EXPORT=~/bin/bzr_export.pl
 EXPORT=./bzr_export.pl
@@ -10,12 +14,21 @@ clean:
 
 remake: clean default
 
-tmp.h: tmp
-	echo 'unsigned char tar[] = {};' > tmp.h
-	./tmp tmp.h
+blob.o::
+	git archive --prefix $(GIT_TAG)/ --format tar HEAD > $(GIT_TAG).tar
+	git diff > $(GIT_TAG).diff
+	tar --create --file - --remove-files \
+		$(GIT_TAG).tar $(GIT_TAG).diff \
+		| xz > $*.bin
+	objcopy \
+		--input binary \
+		--output elf64-x86-64 \
+		--binary-architecture i386 \
+		$*.bin $@
+#	rm $*.bin
 
-tmp: gfm.cc gfa.hh
-	if [ -x $(EXPORT) ] ; then $(EXPORT) --verbose --output tmp ; else ln --symbolic --force `which touch` tmp ; fi
+gfm.o: gfm.cc gfa.hh tmp.h
 
-gfm: gfm.cc gfa.hh tmp.h
-	$(CXX) $(CXXFLAGS) -lssl -Wall -Werror -DREAL_TAR_ARRY $^ -o $@
+gfm: gfm.o blob.o
+
+.PHONY: default clean remake

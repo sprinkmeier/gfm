@@ -1,12 +1,4 @@
 #include "gfa.hh"
-#ifdef REAL_TAR_ARRY
-extern "C"
-{
-#include "tmp.h"
-}
-#else
-unsigned char tar[] = {};
-#endif
 
 #include <unistd.h>
 #include <stdint.h>
@@ -20,6 +12,11 @@ unsigned char tar[] = {};
 #include <stdarg.h>
 #include <stdlib.h>
 #include <assert.h>
+
+extern char _binary_blob_bin_start;
+extern char _binary_blob_bin_end;
+
+size_t  _binary_blob_bin_len = &_binary_blob_bin_end - &_binary_blob_bin_start;
 
 /// needs to be the same for parity gerneration and recovery.
 /// Choose multiples of 512 'cos that's one disk sector.
@@ -63,7 +60,7 @@ public:
     , numParity(_numParity)
   {
     int rows = numData + numParity;
-    // could go as high as 255, but 250 
+    // could go as high as 255, but 250
     // is neater
     attest(rows <= 250, "Unable to create %i rows, limited to 250", rows);
 
@@ -103,15 +100,15 @@ public:
 
   // helper function to create a 2-dimensional array of
   // bytes that can be free'd with a single free().
-  // More importantly, the rows are arranged such that 
+  // More importantly, the rows are arranged such that
   // [n][cols] == [n+1][0] so we can read/write the
   // whole thing with a single call
   static uint8_t ** makeArray(size_t rows, size_t cols)
   {
     int numCells = rows * cols;
     // allocate enough memory for the backbone and the cells
-    ssize_t size = 
-      (rows     * sizeof(uint8_t *)) + 
+    ssize_t size =
+      (rows     * sizeof(uint8_t *)) +
       (numCells * sizeof(uint8_t));
     uint8_t ** ret = (uint8_t **)calloc(size,1);
     attest(ret, "Unable to create %u x %u matrix", rows, cols);
@@ -149,7 +146,7 @@ public:
       }
   }
 
-  // calculate the parity for a single block of data 
+  // calculate the parity for a single block of data
   void parity(uint8_t * data)
   {
     // output = matrix * data
@@ -166,7 +163,7 @@ public:
 	parity++;
       }
   }
-  
+
   // mark a data (or parity) set as failed.
   // all vaid rows have a 0 or 1 in the first column
   // so use 0xFF as a marker
@@ -187,9 +184,9 @@ public:
   }
 
   // print out a given matrix
-  static void print(const char * msg, 
-		    uint8_t ** m, 
-		    uint8_t rows, 
+  static void print(const char * msg,
+		    uint8_t ** m,
+		    uint8_t rows,
 		    uint8_t cols)
   {
     std::cerr << msg << '\n';
@@ -215,13 +212,13 @@ public:
 	ret[idx][idx] = 1;
       }
 
-    // create a temporary matrix for the 
+    // create a temporary matrix for the
     // upcoming matrix inversion
     uint8_t ** tmp = makeArray(numData, numData);
 
     // when replacing a failed row, start at the end of the matrix
-    uint8_t tst = numData + numParity; 
-    // fill in the tmp matrix from the available rows 
+    uint8_t tst = numData + numParity;
+    // fill in the tmp matrix from the available rows
     for (int row = 0; row < numData; row++)
       {
 	// assume the row has not failed (i.e. just copy it)
@@ -341,7 +338,7 @@ public:
 	    // to optimise the following:
 	    for (size_t idx = 0; idx < len; idx++)
 	      {
-		data[row][idx] ^= gfa.mult(r[row][col], 
+		data[row][idx] ^= gfa.mult(r[row][col],
 					   data[r[col][numData]][idx]);
 	      }
 	  }
@@ -356,13 +353,13 @@ public:
 	uint8_t tmp = 0;
 	for (uint8_t col = 0; col < numData; col++)
 	  {
-	    tmp ^= gfa.mult(r[row][col], 
+	    tmp ^= gfa.mult(r[row][col],
 			    data[r[col][numData]]);
 	  }
 	data[row] = tmp;
       }
   }
-  
+
   // helper function for recovery matrix creation
   void MulyRowBy(uint8_t ** m, uint8_t row, uint8_t mult)
   {
@@ -381,7 +378,7 @@ public:
       m[a][col] ^= m[b][col];
     }
   }
-   
+
 private:
   GFA        gfa;
   uint8_t ** d;
@@ -397,7 +394,7 @@ public:
     const uint8_t numData   =  25;
     const uint8_t numParity =  25;
     const size_t blockSize = 64 * 1024;
-    
+
     GFM gfm(numData, numParity);
 
     // run the GFA built-in-test
@@ -405,7 +402,7 @@ public:
 
     // single row test (redundant?)
     uint8_t data[(numData+numParity)] = {55, 42, 69};
-    
+
     // matrix test
     uint8_t ** data2 = gfm.makeArray(numData + numParity, blockSize);
     // fill the matrix with deterministic junk
@@ -417,11 +414,11 @@ public:
 	    row[idx] = (uint8_t)(idx * (rowIdx^idx));
 	  }
       }
-    
+
     // generate the parity data
     gfm.parity(data);
     gfm.parity(data2, blockSize);
-    
+
     // fail a bunch of rows
 #define FAIL_DATA(x) {gfm.failData(x); data[x] = -2;}
     FAIL_DATA(9);
@@ -433,14 +430,14 @@ public:
     FAIL_DATA(6);
     FAIL_DATA(7);
 #undef FAIL_DATA
-    
+
     // generate a recovery matrix
     uint8_t ** r = gfm.recovery();
-    
+
     // recover ...
     gfm.recover(data, r);
     gfm.recover(data2, r, blockSize);
-    
+
     // test the junk
     for (uint8_t rowIdx = 0; rowIdx < numData; rowIdx++)
       {
@@ -450,7 +447,7 @@ public:
 	    assert(row[idx] == (uint8_t)(idx * (rowIdx^idx)));
 	  }
       }
-    
+
     free(r);
     free(data2);
   };
@@ -473,24 +470,26 @@ void writeHeader(int fd, const signature & sig, EVP_MD_CTX & ctx)
 
   if (!buff)
     {
-      
-      unsigned t = (64 + (2 * sizeof(tar))) / BLOCKSIZE;
+
+      unsigned t = (64 + (2 * _binary_blob_bin_len)) / BLOCKSIZE;
 
       while(t)
 	{
 	  t >>= 1;
 	  s <<= 1;
 	}
-      
+
       buff = (char *)calloc(s,1); // drip
       // magic here!!
-      strcpy(buff, "dd bs=64 skip=1 < FILE | tar xjf -"
+      strcpy(buff, "dd bs=64 skip=1 < FILE > gfm.tar.xz"
 	     "\n\n\n\n\n\n\n\n\n\n\n\n");
-      memcpy(buff+MAGIC, tar, sizeof(tar));
+      memcpy(buff+MAGIC,
+             &_binary_blob_bin_start,
+             _binary_blob_bin_len);
     }
   memcpy(buff+MAGIC-8, &s,   4);
   memcpy(buff+MAGIC-4, &sig, 4);
-  attest(write(fd,buff,s) == (ssize_t)s, 
+  attest(write(fd,buff,s) == (ssize_t)s,
 	 "Unable to write signature");
   EVP_DigestUpdate(&ctx, buff, s);
 
@@ -568,25 +567,25 @@ size_t removePadding(uint8_t * buff, size_t buffSize)
 
 // print out the MD checksums
 void PrintMD(FILE * file,
-	     const std::string & filename, 
+	     const std::string & filename,
 	     EVP_MD_CTX & ctx)
 {
   unsigned char digest[EVP_MAX_MD_SIZE];
   unsigned int  digestLen = sizeof(digest);
   EVP_DigestFinal_ex(&ctx, digest, &digestLen);
-  
+
   unsigned i;
   for (i = 0; i < digestLen; i++)
     {
       fprintf(file, "%02x", (digest[i] & 0xFF));
     }
   fprintf(file, "  %s\n", filename.c_str());
-  
+
   EVP_MD_CTX_cleanup(&ctx);
 }
 
-void CreateParity(const uint8_t numData, 
-		  const uint8_t numParity, 
+void CreateParity(const uint8_t numData,
+		  const uint8_t numParity,
 		  const std::string & stub)
 {
   GFM gfm (numData, numParity);
@@ -606,15 +605,15 @@ void CreateParity(const uint8_t numData,
   EVP_DigestInit_ex(&MD_ctx[256], EVP_MD5, 0);
   filename[256] = stub + ".md5";
   FILE * md5File = fopen(filename[256].c_str(), "w");
-  attest(md5File, "Unable to open MD file: '%s'", 
+  attest(md5File, "Unable to open MD file: '%s'",
 	 filename[256].c_str());
 
   for (int idx = 0; idx < (numData + numParity); idx++)
-    { 
+    {
       filename[idx] = MakeFilename(stub, idx);
-      fds[idx] = open(filename[idx].c_str(), 
+      fds[idx] = open(filename[idx].c_str(),
 		      O_WRONLY | O_CREAT | O_TRUNC, 0644);
-      attest(fds[idx], "Unable to open file: '%s'", 
+      attest(fds[idx], "Unable to open file: '%s'",
 	     filename[idx].c_str());
 
       EVP_MD_CTX_init(&MD_ctx[idx]);
@@ -624,9 +623,9 @@ void CreateParity(const uint8_t numData,
       writeHeader(fds[idx], sig, MD_ctx[idx]);
 
     }
-  
+
   uint8_t ** buff = GFM::makeArray(numData + numParity, BLOCKSIZE);
-	
+
   while(1)
     {
       memset(buff[0], 0, numData * BLOCKSIZE);
@@ -642,8 +641,8 @@ void CreateParity(const uint8_t numData,
       for (int idx = 0; idx < (numData + numParity); idx++)
 	{
 	  ssize_t numWritten = write(fds[idx], buff[idx], BLOCKSIZE);
-	  attest(numWritten == (ssize_t)BLOCKSIZE, 
-		 "Unable to write block: '%s'", 
+	  attest(numWritten == (ssize_t)BLOCKSIZE,
+		 "Unable to write block: '%s'",
 		 filename[idx].c_str());
 
 	  EVP_DigestUpdate(&MD_ctx[idx], buff[idx], BLOCKSIZE);
@@ -654,10 +653,10 @@ void CreateParity(const uint8_t numData,
 	  break;
 	}
     }
- 
+
   // finish off all the files
   for (int idx = 0; idx < (numData + numParity); idx++)
-    { 
+    {
       close(fds[idx]);
       PrintMD(md5File, filename[idx], MD_ctx[idx]);
     }
@@ -731,8 +730,8 @@ int OpenFile(const std::string & filename,
   return 0;
 }
 
-void RecoverData(const uint8_t numData, 
-		 const uint8_t numParity, 
+void RecoverData(const uint8_t numData,
+		 const uint8_t numParity,
 		 GFM & gfm,
 		 int * fds)
 {
@@ -763,9 +762,9 @@ void RecoverData(const uint8_t numData,
 
       write(1, buff[0], numToWrite);//numData * BLOCKSIZE);
     }
-  
+
   for (int idx = 0; idx < (numData + numParity); idx++)
-    { 
+    {
       close(fds[idx]);
     }
 
@@ -787,9 +786,9 @@ void RecoverData(const std::string & stub)
   sig.numParity = 255;
   //  sig.fileNum = 0;;
   sig.blocksizePo2 = BLOCKSIZE_Po2;
-  
+
   for (int idx = 0; idx < 250; idx++)
-    { 
+    {
       sig.fileNum = idx;
       std::string filename =  MakeFilename(stub, idx);
       fds[idx] = OpenFile(filename, idx, sig);
@@ -802,15 +801,15 @@ void RecoverData(const std::string & stub)
 	      expected.blocksizePo2 = sig.blocksizePo2;
 	      continue;
 	    }
-	    
-	  attest(expected.numData   == sig.numData, 
-		 "signature.numData inconsistent: %s", 
+
+	  attest(expected.numData   == sig.numData,
+		 "signature.numData inconsistent: %s",
 		 filename.c_str());
 	  attest(expected.numParity == sig.numParity,
-		 "signature.numParity inconsistent: %s", 
+		 "signature.numParity inconsistent: %s",
 		 filename.c_str());
 	  attest(expected.blocksizePo2 == sig.blocksizePo2,
-		 "signature.blocksizePo2 inconsistent: %s", 
+		 "signature.blocksizePo2 inconsistent: %s",
 		 filename.c_str());
 	  if (expected.fileNum < sig.numData)
 	    {
@@ -820,7 +819,7 @@ void RecoverData(const std::string & stub)
 	}
     }
   // did we manage to open any files?
-  attest(expected.fileNum, "Unable to find any files: '%s'", 
+  attest(expected.fileNum, "Unable to find any files: '%s'",
 	 stub.c_str());
 
   const uint8_t numData   = sig.numData;
@@ -830,7 +829,7 @@ void RecoverData(const std::string & stub)
 	 "must not exceed 250: '%s'", stub.c_str());
 
   attest(expected.fileNum >= numData,
-	 "Unable to recover, need at least %i files available: '%s'", 
+	 "Unable to recover, need at least %i files available: '%s'",
 	 numData, stub.c_str());
 
   GFM gfm (numData, numParity);
@@ -842,9 +841,9 @@ void RecoverData(const std::string & stub)
 	  gfm.failData(idx);
 	}
     }
-  
+
   // now that we have opened all the files, start the recovery.
-  RecoverData(numData, 
+  RecoverData(numData,
 	      numParity,
 	      gfm,
 	      fds);
@@ -853,9 +852,9 @@ void RecoverData(const std::string & stub)
 void rtfm(const std::string & prog)
 {
   // svn propset svn:keywords "Author Date Id Revision" gfm.cc
-      
 
-  std::cerr << "\t# $Id: gfm.cc 23 2008-08-29 22:42:09Z sprinkmeier $\n" 
+
+  std::cerr << "\t# $Id: gfm.cc 23 2008-08-29 22:42:09Z sprinkmeier $\n"
 	    << prog <<
     " STUB [NUM_DATA NUM_PARITY]\n"
     "\tSTUB       filename stub for files\n"
@@ -886,7 +885,7 @@ int main(int argc, char ** argv)
     }
 
   // generation mode.
-  // Specify file stub, number of data and number 
+  // Specify file stub, number of data and number
   // of parity files to split into.
   if (argc == 4)
     {
