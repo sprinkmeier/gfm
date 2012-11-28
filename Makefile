@@ -3,6 +3,7 @@ CC=$(CXX)
 LDLIBS += $(shell pkg-config --libs openssl)
 GIT_TAG=gfm-$(shell git describe --tags --dirty --long)
 
+CXXFLAGS += -Wall -Wextra -Werror
 CXXFLAGS += -O3
 
 default: gfm

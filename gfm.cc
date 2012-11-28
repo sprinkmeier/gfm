@@ -671,7 +671,6 @@ void CreateParity(const uint8_t numData,
 
 
 int OpenFile(const std::string & filename,
-	     uint8_t idx,
 	     signature & sig)
 {
     int fd = open(filename.c_str(), O_RDONLY);
@@ -722,7 +721,7 @@ int OpenFile(const std::string & filename,
 	     GFM & gfm,
 	     signature & sig)
 {
-    int fd = OpenFile(filename, idx, sig);
+    int fd = OpenFile(filename, sig);
     if (fd)
     {
         return fd;
@@ -761,7 +760,8 @@ void RecoverData(const uint8_t numData,
 
         size_t numToWrite = removePadding(buff[0], numData * BLOCKSIZE);
 
-        write(1, buff[0], numToWrite);//numData * BLOCKSIZE);
+        size_t rc = write(1, buff[0], numToWrite);//numData * BLOCKSIZE);
+        attest(rc == numToWrite, "Expected to write %zd, wrote %zd", numToWrite, rc);
     }
 
     for (int idx = 0; idx < (numData + numParity); idx++)
@@ -781,7 +781,7 @@ void RecoverData(const std::string & stub)
 
     // use this to make sure all the files have the same
     // parameters
-    signature expected = {0,0,0};
+    signature expected = {0,0,0,0};
     signature sig;
     sig.numData   = 255;
     sig.numParity = 255;
@@ -792,7 +792,7 @@ void RecoverData(const std::string & stub)
     {
         sig.fileNum = idx;
         std::string filename =  MakeFilename(stub, idx);
-        fds[idx] = OpenFile(filename, idx, sig);
+        fds[idx] = OpenFile(filename, sig);
         if (fds[idx] > 0)
 	{
             if (!expected.fileNum++)
