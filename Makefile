@@ -3,6 +3,9 @@ CC=$(CXX)
 LDLIBS += $(shell pkg-config --libs openssl)
 GIT_TAG=$(shell git describe --tags --dirty --long)
 
+CXXFLAGS += -O3
+CXXFLAGS += -DGIT_TAG='"$(GIT_TAG)"'
+
 default: gfm
 
 clean:
