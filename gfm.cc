@@ -852,10 +852,7 @@ void RecoverData(const std::string & stub)
 
 void rtfm(const std::string & prog)
 {
-    // svn propset svn:keywords "Author Date Id Revision" gfm.cc
-
-
-    std::cerr << "\t# " GIT_TAG "\n"
+        std::cerr << "\t# " GIT_TAG "\n"
               << prog <<
         " STUB [NUM_DATA NUM_PARITY]\n"
         "\tSTUB       filename stub for files\n"

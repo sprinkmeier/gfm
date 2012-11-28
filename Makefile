@@ -4,7 +4,6 @@ LDLIBS += $(shell pkg-config --libs openssl)
 GIT_TAG=gfm-$(shell git describe --tags --dirty --long)
 
 CXXFLAGS += -O3
-CXXFLAGS += -DGIT_TAG='"$(GIT_TAG)"'
 
 default: gfm
 
