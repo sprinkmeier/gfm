@@ -874,12 +874,14 @@ void RecoverData(const std::string & stub)
 
 void rtfm(const std::string & prog)
 {
-        std::cerr << "\t# " GIT_TAG "\n"
+    std::cerr << "\t# " GIT_TAG "\n"
               << prog <<
         " STUB [NUM_DATA NUM_PARITY]\n"
-        "\tSTUB       filename stub for files\n"
-        "\tNUM_DATA   number of data files\n"
-        "\tNUM_PARITY number of parity files (implies generate mode)\n"
+        "\tSTUB         filename stub for files\n"
+        "\tNUM_DATA     number of data files\n"
+        "\tNUM_PARITY   number of parity files\n"
+              << prog <<
+        "\tDUMP.tar.xz  dump embedded data\n"
               << std::endl;
     exit(1);
 }
