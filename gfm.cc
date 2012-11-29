@@ -1,6 +1,7 @@
 #include "gfa.hh"
 #include "git.h"
 
+#include <errno.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -820,8 +821,29 @@ void RecoverData(const std::string & stub)
 	}
     }
     // did we manage to open any files?
-    attest(expected.fileNum, "Unable to find any files: '%s'",
-           stub.c_str());
+    if (!expected.fileNum)
+    {
+        int fd = open(stub.c_str(),
+                      O_WRONLY | O_CREAT | O_EXCL,
+                      0644);
+        attest(fd >= 0,
+               "Unable to open %s: %d (%s)",
+               stub.c_str(), errno, strerror(errno));
+        size_t numWritten = write(
+            fd,
+            &_binary_blob_bin_start,
+            _binary_blob_bin_len);
+        attest(numWritten == _binary_blob_bin_len,
+               "only wrote %zd of %zd to %s",
+               numWritten, _binary_blob_bin_len,
+               stub.c_str());
+        close(fd);
+        std::cerr << "Wrote all "
+                  << _binary_blob_bin_len
+                  << " bytes of .tar.xz data  to "
+                  << stub << std::endl;
+        exit(0);
+    }
 
     const uint8_t numData   = sig.numData;
     const uint8_t numParity = sig.numParity;
