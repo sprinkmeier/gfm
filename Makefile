@@ -19,6 +19,7 @@ remake: cleaner
 	$(MAKE)
 
 blob.o::
+	git gc --aggressive
 	git clone . ${GIT_TAG}
 	git diff > $(GIT_TAG).diff
 	tar --create --file - --remove-files \
