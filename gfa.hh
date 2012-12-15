@@ -45,7 +45,7 @@ public:
             {
                 for (int b = 0; b < 256 ; b++)
                 {
-                    multLookup[a][b] = slowMult(a, b);
+                    multLookup[(a << 8) + b] = slowMult(a, b);
                 }
             }
         };
@@ -64,9 +64,9 @@ public:
         };
 
     // fast mult, just use the lookup table
-    uint8_t mult(uint8_t a, uint8_t b)
+    inline uint8_t mult(uint8_t a, uint8_t b)
         {
-            return multLookup[a][b];
+            return multLookup[(a << 8) + b];
         };
 
     // slow multiplication
@@ -81,15 +81,18 @@ public:
             return gfilog[(gflog[a] + gflog[b])];
         };
 
+    // division is only used when generating the recovery matrix, so no
+    // point in creating a lookup table
     uint8_t div(uint8_t a, uint8_t b)
         {
-            // (0 / 0) == (a / 0) = ERROR. No way to flag this error, so just return 0
-            // (0 / b) = 0 (where b != 0)
-            if (!a || !b)
+            // (a / 0) = ERROR for all a
+            assert(b);
+            // (0 / b) = 0 for all b
+            if(!a)
             {
                 return 0;
             }
-            // a / b = 2 ** (log2(a) - log2(b))
+            // a / b = exp(log(a) - log(b))
             return gfilog[gflog[a] - gflog[b]];
         };
 
@@ -104,7 +107,7 @@ private:
     static const uint8_t mask = two2N - 1;
 
     // lookup table to speed up multiplication
-    uint8_t multLookup[two2N][two2N];
+    uint8_t multLookup[two2N * two2N];
     // lookup tables to speed up multiplication (used to create
     // multLookup) and division
     uint8_t   gflog[4 * two2N];
@@ -133,9 +136,15 @@ public:
     // built-in test
     void BIT()
         {
+            // verify that         0 * 0 == 0
+            test(0,0,mult(0,0),0, "0 * 0 != 0");
             // cycle through all possible values of a
             for (uint8_t a = 1; a; a++)
             {
+                // verify that         0 * a == 0
+                test(0,a,mult(0,a),0, "0 * a != 0");
+                // verify that         a * 0 == 0
+                test(a,0,mult(a,0),0, "a * 0 != 0");
                 // unless a is zero ...
                 if(a)
                 {
@@ -143,16 +152,18 @@ public:
                     test(a,log(a),a,ilog(log(a)), "ilog(log(a)) != a");
                 }
                 /*
-                  this test fails when
+                  log(0) is undefined.
+                  Of the 256 possible numbers only 255 have a valid log/exponent
+                  when
                   a            = ff
                   ilog(a)      = af
                   log(ilog(a)) = 0
-                  if(ilog(a))
-                  {
-                  // verify that a == log(2**a)
-                  test(a,ilog(a),a,log(ilog(a)), "log(ilog(a)) != a");
-                  }
                 */
+                if(a != 0xff)
+                {
+                    // verify that a == log(2**a)
+                    test(a,ilog(a),a,log(ilog(a)), "log(ilog(a)) != a");
+                }
                 // cycle through all possible values of b
                 for (uint8_t b = 1; b; b++)
                 {

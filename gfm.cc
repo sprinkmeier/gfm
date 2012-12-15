@@ -1,19 +1,22 @@
 #include "gfa.hh"
 #include "git.h"
 
+#include <openssl/evp.h>
+
+#include <assert.h>
 #include <errno.h>
-#include <unistd.h>
+#include <fcntl.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <string.h>
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <openssl/evp.h>
-#include <stdarg.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
 
 extern char _binary_blob_bin_start;
 extern char _binary_blob_bin_end;
@@ -26,7 +29,7 @@ size_t  _binary_blob_bin_len = &_binary_blob_bin_end - &_binary_blob_bin_start;
 /// but might waste more on partial blocks
 const uint8_t BLOCKSIZE_Po2 = 12;
 const size_t  BLOCKSIZE     = 1 << BLOCKSIZE_Po2;
-const size_t  MAGIC         = 64;
+const size_t  MAGIC         = 128;
 
 // Signature prepended to data and parity files.
 typedef struct _signature
@@ -127,7 +130,7 @@ public:
 
     // calculate the parity bits for a whole block of data
     //  data [0..len-1][0..(numData+numParity-1]
-    void parity(uint8_t ** data, size_t len)
+    inline void parity(uint8_t ** data, size_t len)
         {
             // clear all the rows corresponding to the parity bytes
             memset(data[numData], 0, (len * numParity));
@@ -149,7 +152,7 @@ public:
         }
 
     // calculate the parity for a single block of data
-    void parity(uint8_t * data)
+    inline void parity(uint8_t * data)
         {
             // output = matrix * data
             // the first numData elements of output are just the data
@@ -321,7 +324,7 @@ public:
         }
 
     // recover a block of data
-    void recover(uint8_t ** data, uint8_t ** r, size_t len)
+    inline void recover(uint8_t ** data, uint8_t ** r, size_t len)
         {
             for (uint8_t row = 0; row < numData; row++)
             {
@@ -348,7 +351,7 @@ public:
         }
 
     // recover a single dataset
-    void recover(uint8_t * data, uint8_t ** r)
+    inline void recover(uint8_t * data, uint8_t ** r)
         {
             for (uint8_t row = 0; row < numData; row++)
             {
@@ -458,7 +461,8 @@ public:
 std::string MakeFilename(const std::string & stub, int num)
 {
     std::ostringstream o;
-    o << (stub) << num;
+    o << (stub);
+    o << std::setw(2) << std::setfill('0') << std::hex << num;
 
     return o.str();
 }
@@ -482,7 +486,7 @@ void writeHeader(int fd, const signature & sig, EVP_MD_CTX & ctx)
 	}
 
         // magic here!!
-        buff = "dd bs=64 skip=1 < FILE | unxz > gfm.tar"
+        buff = "dd bs=128 skip=1 < FILE | unxz | tee gfm.tar | tar xf -"
             "\n\n\n\n\n\n\n\n\n\n\n\n";
         buff.resize(s);
         memcpy(&buff[MAGIC],
@@ -914,6 +918,11 @@ int main(int argc, char ** argv)
         int numData   = atoi(argv[2]);
         int numParity = atoi(argv[3]);
 
+        if (numData < 0)
+        {
+            _binary_blob_bin_len = 0;
+            numData = -numData;
+        }
         attest((numData > 0) && (numData < 250),
                "You must specify between 1 and 249 data files");
         attest((numParity > 0) && (numParity < 250),
