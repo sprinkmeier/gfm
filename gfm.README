@@ -1,9 +1,9 @@
 This utiity uses Reed-Solomon coding to provide fault tolerant data storage.
 
-This program is based on two papers, 
+This program is based on two papers,
 "H. Peter Anvin, 'The mathematics of RAID-6', Decemer 2004"
 and
-"James S. Plank, ' A Tutorial on Reed-Solomon Coding for Fault-Tolerance in 
+"James S. Plank, ' A Tutorial on Reed-Solomon Coding for Fault-Tolerance in
 RAID-like Systems' (http://www.cs.utk.edu/~plank/plank/papers/CS-96-332.html)".
 
 The idea is to take a stream of data and store it in a number of files
@@ -11,40 +11,40 @@ while calculating and adding in parity data.
 
 These files can then be transported by potentially unreliable means.
 
-Provided sufficient files arrive intact the original data stream can 
+Provided sufficient files arrive intact the original data stream can
 be fully recovered.
 
 split CriticalData into 10 data files with 5 parity files
-$ gfm crit. 10 5 < CriticalData 
+$ gfm crit. 10 5 < CriticalData
 
 the created files:
 $ ls
-CriticalData  crit.10  crit.13  crit.3  crit.6  crit.9
-crit.0        crit.11  crit.14  crit.4  crit.7  crit.md5
-crit.1        crit.12  crit.2   crit.5  crit.8
+CriticalData  crit.10  crit.13  crit.03 crit.06  crit.09
+crit.00       crit.11  crit.14  crit.04 crit.07  crit.md5
+crit.01       crit.12  crit.02  crit.05 crit.08
 
-The first 10 files contain the original data, slightly mangled and 
+The first 10 files contain the original data, slightly mangled and
 with some housekeeping data added. These are the 'data' files.
 The last 5 files contain the calculated parity data (plus housekeeping).
-These are the 'parity' files. 
+These are the 'parity' files.
 
-In practice 'data' and 'parity' files are interchangeable when it 
+In practice 'data' and 'parity' files are interchangeable when it
 comes to data recovery.
 
-The md5 file contains the MD5 checksumsn of the original data 
+The md5 file contains the MD5 checksumsn of the original data
 and the created files:
 
-$ md5sum --check crit.md5  < CriticalData 
-crit.0: OK
-crit.1: OK
-crit.2: OK
-crit.3: OK
-crit.4: OK
-crit.5: OK
-crit.6: OK
-crit.7: OK
-crit.8: OK
-crit.9: OK
+$ md5sum --check crit.md5  < CriticalData
+crit.00: OK
+crit.01: OK
+crit.02: OK
+crit.03: OK
+crit.04: OK
+crit.05: OK
+crit.06: OK
+crit.07: OK
+crit.08: OK
+crit.09: OK
 crit.10: OK
 crit.11: OK
 crit.12: OK
@@ -52,33 +52,33 @@ crit.13: OK
 crit.14: OK
 -: OK
 
-Note that the 'data' files, being slightly rearranged versions 
-of the raw data, have the same 'compressability' as the original 
-data. The 'parity' files tend not to compress much as they're made 
+Note that the 'data' files, being slightly rearranged versions
+of the raw data, have the same 'compressability' as the original
+data. The 'parity' files tend not to compress much as they're made
 up of all the data files mixed together. Compress before you gfm!
 
 Now assume that only 10 of these files made it:
 $ ls
-CriticalData  crit.10  crit.13  crit.2  crit.5  crit.8
-crit.1        crit.11  crit.14  crit.4  crit.7  crit.md5
+CriticalData  crit.10  crit.13  crit.02  crit.05  crit.08
+crit.01       crit.11  crit.14  crit.04  crit.07  crit.md5
 
-To recover the data from the remaining files 
+To recover the data from the remaining files
 (checking MD5 checksums as we go):
-$ gfm crit. | tee CriticalData.recovered | md5sum --check crit.md5 
+$ gfm crit. | tee CriticalData.recovered | md5sum --check crit.md5
 md5sum: crit.0: No such file or directory
-crit.0: FAILED open or read
-crit.1: OK
-crit.2: OK
-md5sum: crit.3: No such file or directory
-crit.3: FAILED open or read
-crit.4: OK
-crit.5: OK
-md5sum: crit.6: No such file or directory
-crit.6: FAILED open or read
-crit.7: OK
-crit.8: OK
-md5sum: crit.9: No such file or directory
-crit.9: FAILED open or read
+crit.00: FAILED open or read
+crit.01: OK
+crit.02: OK
+md5sum: crit.03: No such file or directory
+crit.03: FAILED open or read
+crit.04: OK
+crit.05: OK
+md5sum: crit.06: No such file or directory
+crit.06: FAILED open or read
+crit.07: OK
+crit.08: OK
+md5sum: crit.09: No such file or directory
+crit.09: FAILED open or read
 crit.10: OK
 crit.11: OK
 md5sum: crit.12: No such file or directory
@@ -94,13 +94,13 @@ OK
 
 Notes
 =====
-Files, if present, are assumed to be correct. Depending on the 
+Files, if present, are assumed to be correct. Depending on the
 transport mechanism it may be advisable to verify this.
 
-The total number of files (data + parity) must be less tan or 
+The total number of files (data + parity) must be less tan or
 equal to 250.
 
-The maximum number of files that can be lost without loss of data is 
+The maximum number of files that can be lost without loss of data is
 equal to the number of parity files generated.
 
 The above examples are obviously just a start:
@@ -115,9 +115,9 @@ $ tar --create --file - --directory ~ src \
 
 # result:
 $ ls
-mailme.0   mailme.11  mailme.14  mailme.4  mailme.7  mailme.md5
-mailme.1   mailme.12  mailme.2   mailme.5  mailme.8
-mailme.10  mailme.13  mailme.3   mailme.6  mailme.9
+mailme.00  mailme.11  mailme.14  mailme.04  mailme.07  mailme.md5
+mailme.01  mailme.12  mailme.02  mailme.05  mailme.08
+mailme.10  mailme.13  mailme.03  mailme.06  mailme.09
 
 # now email the lot:
 $ for X in * ; do uuencode "$X" "$X" | mail someone@example.com -s "$X" ; done
@@ -133,19 +133,19 @@ VIRAL
 =====
 What's the use of data without a recovery tool?
 
-Tarballs have no redundancy, but at least everyone has 
+Tarballs have no redundancy, but at least everyone has
 tar to extract the data.
 
 $ tar czf - -C /var/cache/apt/archives/ . | gfm deb.tar.gz 5 5
 tar: ./lock: Cannot open: Permission denied
 tar: Error exit delayed from previous errors
 $ ls
-deb.tar.gz.0  deb.tar.gz.2  deb.tar.gz.4  deb.tar.gz.6  deb.tar.gz.8
-deb.tar.gz.1  deb.tar.gz.3  deb.tar.gz.5  deb.tar.gz.7  deb.tar.gz.9
- 
+deb.tar.gz.00  deb.tar.gz.02  deb.tar.gz.04  deb.tar.gz.06  deb.tar.gz.08
+deb.tar.gz.01  deb.tar.gz.03  deb.tar.gz.05  deb.tar.gz.07  deb.tar.gz.09
+
 OK, so you have a bunch of data files, but no recovery tool. Not so...
 
-Every file has a tarball of the recovery tool prepended, along 
+Every file has a tarball of the recovery tool prepended, along
 with a reminder of how to extract it:
 
 $ head deb.tar.gz.5
@@ -153,19 +153,19 @@ dd bs=64 skip=1 < FILE | tar xjf -
 
 
 
-$ dd bs=64 skip=1 < deb.tar.gz.3 | tar xjf -
+$ dd bs=64 skip=1 < deb.tar.gz.03 | tar xjf -
 
 bzip2: (stdin): trailing garbage after EOF ignored
 tar: Child died with signal 13
 tar: Error exit delayed from previous errors
 
-Don't worry about the error, that's just bunzip complaining about the 
+Don't worry about the error, that's just bunzip complaining about the
 extra 'junk' at the end of the 'tarball'
 
 $ ls
-deb.tar.gz.0  deb.tar.gz.3  deb.tar.gz.6  deb.tar.gz.9
-deb.tar.gz.1  deb.tar.gz.4  deb.tar.gz.7  deb.tar.gz.md5
-deb.tar.gz.2  deb.tar.gz.5  deb.tar.gz.8  gpl3_src-12
+deb.tar.gz.00  deb.tar.gz.03  deb.tar.gz.06  deb.tar.gz.09
+deb.tar.gz.01  deb.tar.gz.04  deb.tar.gz.07  deb.tar.gz.md5
+deb.tar.gz.02  deb.tar.gz.05  deb.tar.gz.08  gpl3_src-12
 $ cd gpl3_src-12/
 $ ls
 Makefile  gfa.hh  gfm.README  gfm.cc  gpl3_src.svndump
@@ -194,12 +194,12 @@ drwxr-xr-x root/root         0 2008-04-18 22:00 ./
 -rw-r--r-- root/root    884762 2008-01-19 04:34 ./update-manager_1%3a0.81.2_all.deb
 -rw-r--r-- root/root     29256 2008-02-20 23:34 ./libavahi-glib1_0.6.20-2ubuntu3.3_i386.deb
 
-But how do you rebuild it 'properly', i.e. so that the data files created 
+But how do you rebuild it 'properly', i.e. so that the data files created
 by the new GFM also include the makings of GFM?
 
 $ mkdir .SVN
 $ svnadmin create .SVN/gpl3_src
-$ svnadmin load .SVN/gpl3_src < gpl3_src.svndump 
+$ svnadmin load .SVN/gpl3_src < gpl3_src.svndump
 <<< Started new transaction, based on original revision 1
 [...]
 ------- Committed revision 12 >>>
