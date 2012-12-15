@@ -1,18 +1,22 @@
 #include "gfa.hh"
 #include "git.h"
 
-#include <unistd.h>
+#include <openssl/evp.h>
+
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <string.h>
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <openssl/evp.h>
-#include <stdarg.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
 
 extern char _binary_blob_bin_start;
 extern char _binary_blob_bin_end;
@@ -25,7 +29,7 @@ size_t  _binary_blob_bin_len = &_binary_blob_bin_end - &_binary_blob_bin_start;
 /// but might waste more on partial blocks
 const uint8_t BLOCKSIZE_Po2 = 12;
 const size_t  BLOCKSIZE     = 1 << BLOCKSIZE_Po2;
-const size_t  MAGIC         = 64;
+const size_t  MAGIC         = 128;
 
 // Signature prepended to data and parity files.
 typedef struct _signature
@@ -126,7 +130,7 @@ public:
 
     // calculate the parity bits for a whole block of data
     //  data [0..len-1][0..(numData+numParity-1]
-    void parity(uint8_t ** data, size_t len)
+    inline void parity(uint8_t ** data, size_t len)
         {
             // clear all the rows corresponding to the parity bytes
             memset(data[numData], 0, (len * numParity));
@@ -148,7 +152,7 @@ public:
         }
 
     // calculate the parity for a single block of data
-    void parity(uint8_t * data)
+    inline void parity(uint8_t * data)
         {
             // output = matrix * data
             // the first numData elements of output are just the data
@@ -320,7 +324,7 @@ public:
         }
 
     // recover a block of data
-    void recover(uint8_t ** data, uint8_t ** r, size_t len)
+    inline void recover(uint8_t ** data, uint8_t ** r, size_t len)
         {
             for (uint8_t row = 0; row < numData; row++)
             {
@@ -347,7 +351,7 @@ public:
         }
 
     // recover a single dataset
-    void recover(uint8_t * data, uint8_t ** r)
+    inline void recover(uint8_t * data, uint8_t ** r)
         {
             for (uint8_t row = 0; row < numData; row++)
             {
@@ -457,7 +461,8 @@ public:
 std::string MakeFilename(const std::string & stub, int num)
 {
     std::ostringstream o;
-    o << (stub) << num;
+    o << (stub);
+    o << std::setw(2) << std::setfill('0') << std::hex << num;
 
     return o.str();
 }
@@ -481,7 +486,7 @@ void writeHeader(int fd, const signature & sig, EVP_MD_CTX & ctx)
 	}
 
         // magic here!!
-        buff = "dd bs=64 skip=1 < FILE | unxz > gfm.tar"
+        buff = "dd bs=128 skip=1 < FILE | unxz | tee gfm.tar | tar xf -"
             "\n\n\n\n\n\n\n\n\n\n\n\n";
         buff.resize(s);
         memcpy(&buff[MAGIC],
@@ -671,7 +676,6 @@ void CreateParity(const uint8_t numData,
 
 
 int OpenFile(const std::string & filename,
-	     uint8_t idx,
 	     signature & sig)
 {
     int fd = open(filename.c_str(), O_RDONLY);
@@ -722,7 +726,7 @@ int OpenFile(const std::string & filename,
 	     GFM & gfm,
 	     signature & sig)
 {
-    int fd = OpenFile(filename, idx, sig);
+    int fd = OpenFile(filename, sig);
     if (fd)
     {
         return fd;
@@ -761,7 +765,8 @@ void RecoverData(const uint8_t numData,
 
         size_t numToWrite = removePadding(buff[0], numData * BLOCKSIZE);
 
-        write(1, buff[0], numToWrite);//numData * BLOCKSIZE);
+        size_t rc = write(1, buff[0], numToWrite);//numData * BLOCKSIZE);
+        attest(rc == numToWrite, "Expected to write %zd, wrote %zd", numToWrite, rc);
     }
 
     for (int idx = 0; idx < (numData + numParity); idx++)
@@ -781,7 +786,7 @@ void RecoverData(const std::string & stub)
 
     // use this to make sure all the files have the same
     // parameters
-    signature expected = {0,0,0};
+    signature expected = {0,0,0,0};
     signature sig;
     sig.numData   = 255;
     sig.numParity = 255;
@@ -792,7 +797,7 @@ void RecoverData(const std::string & stub)
     {
         sig.fileNum = idx;
         std::string filename =  MakeFilename(stub, idx);
-        fds[idx] = OpenFile(filename, idx, sig);
+        fds[idx] = OpenFile(filename, sig);
         if (fds[idx] > 0)
 	{
             if (!expected.fileNum++)
@@ -820,8 +825,29 @@ void RecoverData(const std::string & stub)
 	}
     }
     // did we manage to open any files?
-    attest(expected.fileNum, "Unable to find any files: '%s'",
-           stub.c_str());
+    if (!expected.fileNum)
+    {
+        int fd = open(stub.c_str(),
+                      O_WRONLY | O_CREAT | O_EXCL,
+                      0644);
+        attest(fd >= 0,
+               "Unable to open %s: %d (%s)",
+               stub.c_str(), errno, strerror(errno));
+        size_t numWritten = write(
+            fd,
+            &_binary_blob_bin_start,
+            _binary_blob_bin_len);
+        attest(numWritten == _binary_blob_bin_len,
+               "only wrote %zd of %zd to %s",
+               numWritten, _binary_blob_bin_len,
+               stub.c_str());
+        close(fd);
+        std::cerr << "Wrote all "
+                  << _binary_blob_bin_len
+                  << " bytes of .tar.xz data  to "
+                  << stub << std::endl;
+        exit(0);
+    }
 
     const uint8_t numData   = sig.numData;
     const uint8_t numParity = sig.numParity;
@@ -852,15 +878,14 @@ void RecoverData(const std::string & stub)
 
 void rtfm(const std::string & prog)
 {
-    // svn propset svn:keywords "Author Date Id Revision" gfm.cc
-
-
     std::cerr << "\t# " GIT_TAG "\n"
               << prog <<
         " STUB [NUM_DATA NUM_PARITY]\n"
-        "\tSTUB       filename stub for files\n"
-        "\tNUM_DATA   number of data files\n"
-        "\tNUM_PARITY number of parity files (implies generate mode)\n"
+        "\tSTUB         filename stub for files\n"
+        "\tNUM_DATA     number of data files\n"
+        "\tNUM_PARITY   number of parity files\n"
+              << prog <<
+        "\tDUMP.tar.xz  dump embedded data\n"
               << std::endl;
     exit(1);
 }
@@ -893,6 +918,11 @@ int main(int argc, char ** argv)
         int numData   = atoi(argv[2]);
         int numParity = atoi(argv[3]);
 
+        if (numData < 0)
+        {
+            _binary_blob_bin_len = 0;
+            numData = -numData;
+        }
         attest((numData > 0) && (numData < 250),
                "You must specify between 1 and 249 data files");
         attest((numParity > 0) && (numParity < 250),
