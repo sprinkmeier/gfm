@@ -1,10 +1,12 @@
+# gfm: Gallois Field Matrix - based encoder
+
 This utiity uses Reed-Solomon coding to provide fault tolerant data storage.
 
 This program is based on two papers,
-"H. Peter Anvin, 'The mathematics of RAID-6', Decemer 2004"
+*H. Peter Anvin, 'The mathematics of RAID-6', Decemer 2004*
 and
-"James S. Plank, ' A Tutorial on Reed-Solomon Coding for Fault-Tolerance in
-RAID-like Systems' (http://www.cs.utk.edu/~plank/plank/papers/CS-96-332.html)".
+*James S. Plank, [A Tutorial on Reed-Solomon Coding for Fault-Tolerance in
+RAID-like Systems](http://www.cs.utk.edu/~plank/plank/papers/CS-96-332.html)*.
 
 The idea is to take a stream of data and store it in a number of files
 while calculating and adding in parity data.
@@ -15,13 +17,13 @@ Provided sufficient files arrive intact the original data stream can
 be fully recovered.
 
 split CriticalData into 10 data files with 5 parity files
-$ gfm crit. 10 5 < CriticalData
+    $ gfm crit 10 5 < CriticalData
 
 the created files:
-$ ls
-CriticalData  crit.10  crit.13  crit.03 crit.06  crit.09
-crit.00       crit.11  crit.14  crit.04 crit.07  crit.md5
-crit.01       crit.12  crit.02  crit.05 crit.08
+    $ ls
+    crit00  crit03  crit06  crit09  crit0c  CriticalData
+    crit01  crit04  crit07  crit0a  crit0d  crit.md5
+    crit02  crit05  crit08  crit0b  crit0e
 
 The first 10 files contain the original data, slightly mangled and
 with some housekeeping data added. These are the 'data' files.
@@ -34,23 +36,23 @@ comes to data recovery.
 The md5 file contains the MD5 checksumsn of the original data
 and the created files:
 
-$ md5sum --check crit.md5  < CriticalData
-crit.00: OK
-crit.01: OK
-crit.02: OK
-crit.03: OK
-crit.04: OK
-crit.05: OK
-crit.06: OK
-crit.07: OK
-crit.08: OK
-crit.09: OK
-crit.10: OK
-crit.11: OK
-crit.12: OK
-crit.13: OK
-crit.14: OK
--: OK
+    $ gfm crit | md5sum --check crit.md5
+    crit00: OK
+    crit01: OK
+    crit02: OK
+    crit03: OK
+    crit04: OK
+    crit05: OK
+    crit06: OK
+    crit07: OK
+    crit08: OK
+    crit09: OK
+    crit0a: OK
+    crit0b: OK
+    crit0c: OK
+    crit0d: OK
+    crit0e: OK
+    -: OK
 
 Note that the 'data' files, being slightly rearranged versions
 of the raw data, have the same 'compressability' as the original
@@ -58,46 +60,49 @@ data. The 'parity' files tend not to compress much as they're made
 up of all the data files mixed together. Compress before you gfm!
 
 Now assume that only 10 of these files made it:
-$ ls
-CriticalData  crit.10  crit.13  crit.02  crit.05  crit.08
-crit.01       crit.11  crit.14  crit.04  crit.07  crit.md5
+
+    $ ls
+    crit01  crit04  crit07  crit09  crit0d  CriticalData
+    crit02  crit05  crit08  crit0a  crit0e  crit.md5
 
 To recover the data from the remaining files
 (checking MD5 checksums as we go):
-$ gfm crit. | tee CriticalData.recovered | md5sum --check crit.md5
-md5sum: crit.0: No such file or directory
-crit.00: FAILED open or read
-crit.01: OK
-crit.02: OK
-md5sum: crit.03: No such file or directory
-crit.03: FAILED open or read
-crit.04: OK
-crit.05: OK
-md5sum: crit.06: No such file or directory
-crit.06: FAILED open or read
-crit.07: OK
-crit.08: OK
-md5sum: crit.09: No such file or directory
-crit.09: FAILED open or read
-crit.10: OK
-crit.11: OK
-md5sum: crit.12: No such file or directory
-crit.12: FAILED open or read
-crit.13: OK
-crit.14: OK
--: OK
-md5sum: WARNING: 5 of 16 listed files could not be read
+
+    $ gfm crit | tee CriticalData.recovered | md5sum --check crit.md5
+    md5sum: crit.0: No such file or directory
+    crit00: FAILED open or read
+    crit01: OK
+    crit02: OK
+    md5sum: crit.03: No such file or directory
+    crit03: FAILED open or read
+    crit04: OK
+    crit05: OK
+    md5sum: crit.06: No such file or directory
+    crit06: FAILED open or read
+    crit07: OK
+    crit08: OK
+    crit09: OK
+    crit0a: OK
+    md5sum: crit0b: No such file or directory
+    crit0b: FAILED open or read
+    md5sum: crit0c: No such file or directory
+    crit0c: FAILED open or read
+    crit0d: OK
+    crit0e: OK
+    -: OK
+    md5sum: WARNING: 5 listed files could not be read
 
 And verify:
-$ diff CriticalData CriticalData.recovered && echo OK
-OK
 
-Notes
-=====
+    $ diff CriticalData CriticalData.recovered && echo OK
+    OK
+
+## Notes
+
 Files, if present, are assumed to be correct. Depending on the
 transport mechanism it may be advisable to verify this.
 
-The total number of files (data + parity) must be less tan or
+The total number of files (data + parity) must be less than or
 equal to 250.
 
 The maximum number of files that can be lost without loss of data is
@@ -105,113 +110,74 @@ equal to the number of parity files generated.
 
 The above examples are obviously just a start:
 
-# create a secret password file. You may like to pick a better password :-)
-$ date > /home/sprinkmeier/MySecretPassword
+1. tar up the ~/bin directory, encrypt it and split it up with parity:
 
-# tar up the ~/src directory, encrypt it and split it up with parity:
-$ tar --create --file - --directory ~ src \
-    | gpg --passphrase-file ~/MySecretPassword --batch --symmetric \
-    | gfm mailme. 10 5
+`$ tar --create --file - --directory ~ bin | \`<br/>
+&nbsp;&nbsp;`gpg --encrypt --sign --recipient $USER | gfm mailme 5 5`
 
-# result:
-$ ls
-mailme.00  mailme.11  mailme.14  mailme.04  mailme.07  mailme.md5
-mailme.01  mailme.12  mailme.02  mailme.05  mailme.08
-mailme.10  mailme.13  mailme.03  mailme.06  mailme.09
+1. result:
 
-# now email the lot:
-$ for X in * ; do uuencode "$X" "$X" | mail someone@example.com -s "$X" ; done
+`$ ls`<br/>
+`mailme00  mailme02  mailme04  mailme06  mailme08  mailme.md5`<br/>
+`mailme01  mailme03  mailme05  mailme07  mailme09`
 
-# recover:
-$ gfm mailme. \
-    |  gpg --passphrase-file ~/MySecretPassword --batch --quiet \
-    > src.tar
-gpg: WARNING: message was not integrity protected
+1. now email the lot:
 
+`$ for X in * ; do uuencode "$X" "$X"`<br/>
+&nbsp;&nbsp;`| mail someone@example.com -s "$X" ; done`
 
-VIRAL
-=====
+1. recover:
+
+`$ gfm mailme |  gpg > bin.tar`
+
+## VIRAL
+
 What's the use of data without a recovery tool?
 
 Tarballs have no redundancy, but at least everyone has
 tar to extract the data.
 
-$ tar czf - -C /var/cache/apt/archives/ . | gfm deb.tar.gz 5 5
-tar: ./lock: Cannot open: Permission denied
-tar: Error exit delayed from previous errors
-$ ls
-deb.tar.gz.00  deb.tar.gz.02  deb.tar.gz.04  deb.tar.gz.06  deb.tar.gz.08
-deb.tar.gz.01  deb.tar.gz.03  deb.tar.gz.05  deb.tar.gz.07  deb.tar.gz.09
+    $ tar czf - -C /var/cache/apt/archives/ . | gfm deb.tar.gz 5 5
+    tar: ./lock: Cannot open: Permission denied
+    tar: Error exit delayed from previous errors
+    $ ls
+    deb.tar.gz00  deb.tar.gz02  deb.tar.gz04  deb.tar.gz06  deb.tar.gz08  deb.tar.gz.md5
+    deb.tar.gz01  deb.tar.gz03  deb.tar.gz05  deb.tar.gz07  deb.tar.gz09
 
 OK, so you have a bunch of data files, but no recovery tool. Not so...
 
 Every file has a tarball of the recovery tool prepended, along
 with a reminder of how to extract it:
 
-$ head deb.tar.gz.5
-dd bs=64 skip=1 < FILE | tar xjf -
+    $ head deb.tar.gz05
+    dd bs=128 skip=1 < FILE | unxz | tee gfm.tar | tar xf -
 
-
-
-$ dd bs=64 skip=1 < deb.tar.gz.03 | tar xjf -
-
-bzip2: (stdin): trailing garbage after EOF ignored
-tar: Child died with signal 13
-tar: Error exit delayed from previous errors
+    $ dd bs=128 skip=1 < deb.tar.gz05 | unxz | tee gfm.tar | tar xf -
+    unxz: (stdin): Compressed data is corrupt
+    1503+0 records in
+    1503+0 records out
+    192384 bytes (192 kB) copied, 0.0110278 s, 17.4 MB/s
 
 Don't worry about the error, that's just bunzip complaining about the
 extra 'junk' at the end of the 'tarball'
 
-$ ls
-deb.tar.gz.00  deb.tar.gz.03  deb.tar.gz.06  deb.tar.gz.09
-deb.tar.gz.01  deb.tar.gz.04  deb.tar.gz.07  deb.tar.gz.md5
-deb.tar.gz.02  deb.tar.gz.05  deb.tar.gz.08  gpl3_src-12
-$ cd gpl3_src-12/
-$ ls
-Makefile  gfa.hh  gfm.README  gfm.cc  gpl3_src.svndump
+    $ rm deb*
+    $ ls
+    gfm-rc2-7-g7196cb7-dirty gfm.tar
+    $ cd gfm-*
+    $ ls
+    gfa.hh  gfm.cc  gpl-3.0.txt  Makefile  README.md
 
 This is all you need to recreate the gfm tool, and more:
 
-$ make
-if [ -x ../misc/svn_export.pl ] ; then ../misc/svn_export.pl --output tmp ; else ln -s `which touch` tmp ; fi
-echo 'unsigned char tar[] = {};' > tmp.h
-./tmp tmp.h
-g++  -lssl -Wall -Werror -DREAL_TAR_ARRY gfm.cc gfa.hh tmp.h -o gfm
-$ ls
-Makefile  gfa.hh  gfm  gfm.README  gfm.cc  gpl3_src.svndump  tmp  tmp.h
+    $ make
+    [....]
+    $ ls
+    blob.o  gfa.hh  gfm  gfm.cc  gfm.o  git.h  gpl-3.0.txt
+    Makefile  README.html  README.md  README.pdf
 
-But does it blend^Wunblend?
+Note that this is a clone of the GFM repository:
 
-$ ./gfm ../deb.tar.gz. | tar tzvf - | head
-drwxr-xr-x root/root         0 2008-04-18 22:00 ./
--rw-r--r-- root/root   9197358 2008-03-27 00:34 ./firefox_2.0.0.13+1nobinonly-0ubuntu0.7.10_i386.deb
--rw-r--r-- root/root  17804030 2007-01-23 04:34 ./boson-data_0.13-1_all.deb
--rw-r--r-- root/root     48236 2008-03-20 21:34 ./mysql-client_5.0.45-1ubuntu3.3_all.deb
--rw-r--r-- root/root     84214 2007-07-25 21:33 ./libgnome32_1.4.2-36_i386.deb
--rw-r--r-- root/root   1251810 2007-07-30 18:33 ./manpages-dev_2.62-1_all.deb
--rw-r--r-- root/root    160860 2007-11-14 07:34 ./emacs22-bin-common_22.1-0ubuntu5.1_i386.deb
--rw-r--r-- root/root     79386 2007-10-02 23:34 ./libjpeg-progs_6b-14_i386.deb
--rw-r--r-- root/root    884762 2008-01-19 04:34 ./update-manager_1%3a0.81.2_all.deb
--rw-r--r-- root/root     29256 2008-02-20 23:34 ./libavahi-glib1_0.6.20-2ubuntu3.3_i386.deb
-
-But how do you rebuild it 'properly', i.e. so that the data files created
-by the new GFM also include the makings of GFM?
-
-$ mkdir .SVN
-$ svnadmin create .SVN/gpl3_src
-$ svnadmin load .SVN/gpl3_src < gpl3_src.svndump
-<<< Started new transaction, based on original revision 1
-[...]
-------- Committed revision 12 >>>
-
-$ svn checkout file://`pwd`/.SVN/gpl3_src
-A    gpl3_src/trunk
-[...]
-Checked out revision 12.
-$ cd gpl3_src/trunk/gfm/
-$ make
-svn_export.pl --output tmp
-[...]
-g++  -lssl -Wall -Werror -DREAL_TAR_ARRY gfm.cc gfa.hh tmp.h -o gfm
-
-Done!
+    $ git status
+    # On branch master
+    nothing to commit (working directory clean)
