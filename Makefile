@@ -1,3 +1,8 @@
+MDs  =$(wildcard *.md)
+HTMLs=$(MDs:.md=.html)
+PDFs =$(HTMLs:.html=.pdf)
+DOC  =$(HTMLs) $(PDFs)
+
 CC=$(CXX)
 
 LDLIBS += $(shell pkg-config --libs openssl)
@@ -6,17 +11,26 @@ GIT_TAG=gfm-$(shell git describe --tags --dirty --long)
 CXXFLAGS += -Wall -Wextra -Werror
 CXXFLAGS += -O3
 
-default: gfm
+default: gfm doc
+
+doc: $(DOC)
 
 clean:
 	-rm *.o git.h
 	-rm -rf .deps
+	-rm $(DOC)
 
 cleaner: clean
 	-rm gfm
 
 remake: cleaner
 	$(MAKE)
+
+%.html: %.md
+	markdown $^ > $@
+
+%.pdf: %.html
+	html2ps < $^ | ps2pdf - > $@
 
 blob.o::
 	git gc --aggressive
@@ -45,6 +59,6 @@ gfm: gfm.o  blob.o
 	@mv  $*.d  .deps/$*.d
 	@echo $@: Makefile >> .deps/$*.d
 
-.PHONY: default clean cleaner remake
+.PHONY: default clean cleaner remake doc
 
 -include .deps/*.d

@@ -1,4 +1,6 @@
 gfm
 *.o
+*.html
+*.pdf
 .deps/
 git.h
