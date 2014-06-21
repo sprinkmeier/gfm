@@ -1,3 +1,14 @@
+MACH ?= $(shell uname --machine)
+
+# x86_64
+OC_OUT = elf64-x86-64
+OC_BIN = i386
+
+ifeq ($(MACH),armv6l)
+    OC_OUT = elf32-littlearm
+    OC_BIN = arm
+endif
+
 MDs  =$(wildcard *.md)
 HTMLs=$(MDs:.md=.html)
 PDFs =$(HTMLs:.html=.pdf)
@@ -44,8 +55,8 @@ blob.o::
 		--create --file gfm.tar gfm.tar.xz
 	objcopy \
 		--input binary \
-		--output elf64-x86-64 \
-		--binary-architecture i386 \
+		--output $(OC_OUT) \
+		--binary-architecture $(OC_BIN) \
 		gfm.tar $@
 	rm gfm.tar gfm.tar.xz
 

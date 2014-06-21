@@ -695,7 +695,7 @@ int OpenFile(const std::string & filename,
     uint32_t s = strtol(buff, &endptr, 8);
     s += 0x200;
     off = lseek(fd, s, SEEK_SET);
-    assert(s == off);
+    assert(s == (uint32_t)off);
 
     signature chk;
     rc = read(fd, &chk, sizeof(chk));
