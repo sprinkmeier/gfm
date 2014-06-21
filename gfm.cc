@@ -1,27 +1,29 @@
 #include "gfa.hh"
 #include "git.h"
 
-#include <openssl/evp.h>
-
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <iomanip>
+#include <iostream>
+#include <openssl/evp.h>
+#include <sstream>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include <iomanip>
-#include <iostream>
-#include <sstream>
-#include <string>
+extern char _binary_gfm_tar_start;
+extern char _binary_gfm_tar_end;
 
-extern char _binary_blob_bin_start;
-extern char _binary_blob_bin_end;
-
-size_t  _binary_blob_bin_len = &_binary_blob_bin_end - &_binary_blob_bin_start;
+size_t blobSize();
+size_t  _binary_gfm_tar_len = blobSize();
+//    &_binary_blob_tar_end -
+//    &_binary_blob_tar_start;
 
 /// needs to be the same for parity gerneration and recovery.
 /// Choose multiples of 512 'cos that's one disk sector.
@@ -39,6 +41,15 @@ typedef struct _signature
     uint8_t fileNum;
     uint8_t blocksizePo2;
 } signature;
+
+size_t blobSize()
+{
+    char * endptr = 0;
+    uint32_t s = strtol(
+        (&_binary_gfm_tar_start) + 124,
+        &endptr, 8);
+    return s + 0x200;
+}
 
 // fancy assert
 void attest(bool test, const char * epilogue = "oops", ...)
@@ -469,36 +480,16 @@ std::string MakeFilename(const std::string & stub, int num)
 
 void writeHeader(int fd, const signature & sig, EVP_MD_CTX & ctx)
 {
-    // This static buffer is reused between files.
-    static std::string buff;
-//  static char * buff = 0;
-    static uint32_t s = BLOCKSIZE;
+    attest(write(fd,&_binary_gfm_tar_start,
+                 _binary_gfm_tar_len) == (ssize_t)_binary_gfm_tar_len,
+           "Unable to write tarball");
+    EVP_DigestUpdate(&ctx, &_binary_gfm_tar_start,
+               _binary_gfm_tar_len);
 
-    if (!buff.length())
-    {
-
-        unsigned t = (64 + _binary_blob_bin_len) / BLOCKSIZE;
-
-        while(t)
-	{
-            t >>= 1;
-            s <<= 1;
-	}
-
-        // magic here!!
-        buff = "dd bs=128 skip=1 < FILE | unxz | tee gfm.tar | tar xf -"
-            "\n\n\n\n\n\n\n\n\n\n\n\n";
-        buff.resize(s);
-        memcpy(&buff[MAGIC],
-               &_binary_blob_bin_start,
-               _binary_blob_bin_len);
-    }
-    memcpy(&buff[MAGIC-8], &s,   4);
-    memcpy(&buff[MAGIC-4], &sig, 4);
-    attest(write(fd,&buff[0],s) == (ssize_t)s,
+    attest(write(fd,&sig, sizeof(sig))
+           == (ssize_t)sizeof(sig),
            "Unable to write signature");
-    EVP_DigestUpdate(&ctx, &buff[0], s);
-
+    EVP_DigestUpdate(&ctx, &sig, sizeof(sig));
 }
 
 ssize_t readFully(int fd, void * buff, ssize_t len)
@@ -684,16 +675,32 @@ int OpenFile(const std::string & filename,
         return 0;
     }
 
-    char buff[BLOCKSIZE];
-    ssize_t rc = read(fd, buff, BLOCKSIZE);
-    if (rc != (ssize_t)BLOCKSIZE)
+    off_t off = lseek(fd, 124, SEEK_SET);
+    if (off != 124)
     {
         close(fd);
         return 0;
     }
 
-    uint32_t s = *((uint32_t*)(buff+MAGIC-8));
-    signature & chk(*((signature*)(buff+MAGIC-4)));
+    char buff[BLOCKSIZE];
+    ssize_t rc = read(fd, buff, 11);
+    if (rc != (ssize_t)11)
+    {
+        close(fd);
+        return 0;
+    }
+    buff[11] = '\0';
+
+    char * endptr = 0;
+    uint32_t s = strtol(buff, &endptr, 8);
+    s += 0x200;
+    off = lseek(fd, s, SEEK_SET);
+    assert(s == off);
+
+    signature chk;
+    rc = read(fd, &chk, sizeof(chk));
+    assert(rc == sizeof(chk));
+
     // might not know numData yet either...
     if (sig.numData == 255)
     {
@@ -707,12 +714,6 @@ int OpenFile(const std::string & filename,
     }
     // check that
     if (memcmp(&sig, &chk, sizeof(sig)))
-    {
-        close(fd);
-        return 0;
-    }
-
-    if(lseek(fd, s, SEEK_SET) != (off_t)s)
     {
         close(fd);
         return 0;
@@ -835,16 +836,16 @@ void RecoverData(const std::string & stub)
                stub.c_str(), errno, strerror(errno));
         size_t numWritten = write(
             fd,
-            &_binary_blob_bin_start,
-            _binary_blob_bin_len);
-        attest(numWritten == _binary_blob_bin_len,
+            &_binary_gfm_tar_start,
+            _binary_gfm_tar_len);
+        attest(numWritten == _binary_gfm_tar_len,
                "only wrote %zd of %zd to %s",
-               numWritten, _binary_blob_bin_len,
+               numWritten, _binary_gfm_tar_len,
                stub.c_str());
         close(fd);
         std::cerr << "Wrote all "
-                  << _binary_blob_bin_len
-                  << " bytes of .tar.xz data  to "
+                  << _binary_gfm_tar_len
+                  << " bytes of .tar data  to "
                   << stub << std::endl;
         exit(0);
     }
@@ -920,7 +921,7 @@ int main(int argc, char ** argv)
 
         if (numData < 0)
         {
-            _binary_blob_bin_len = 0;
+            _binary_gfm_tar_len = 0;
             numData = -numData;
         }
         attest((numData > 0) && (numData < 250),

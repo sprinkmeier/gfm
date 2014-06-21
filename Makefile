@@ -10,6 +10,7 @@ GIT_TAG=gfm-$(shell git describe --tags --dirty --long)
 
 CXXFLAGS += -Wall -Wextra -Werror
 CXXFLAGS += -O3
+#CXXFLAGS += -g
 
 default: gfm doc
 
@@ -38,13 +39,15 @@ blob.o::
 	git diff > $(GIT_TAG).diff
 	tar --create --file - --remove-files \
 		$(GIT_TAG).diff ${GIT_TAG} \
-		| xz > $*.bin
+		| xz > gfm.tar.xz
+	tar --format=v7 \
+		--create --file gfm.tar gfm.tar.xz
 	objcopy \
 		--input binary \
 		--output elf64-x86-64 \
 		--binary-architecture i386 \
-		$*.bin $@
-	rm $*.bin
+		gfm.tar $@
+	rm gfm.tar gfm.tar.xz
 
 git.h::
 	echo '#define GIT_TAG "$(GIT_TAG)"' > $@
@@ -59,6 +62,13 @@ gfm: gfm.o  blob.o
 	@mv  $*.d  .deps/$*.d
 	@echo $@: Makefile >> .deps/$*.d
 
-.PHONY: default clean cleaner remake doc
+
+test: gfm
+	./gfm foo 10 10 < gfm
+	./gfm foo | md5sum --check foo.md5
+	tar --test --verbose --file foo00
+	rm foo*
+
+.PHONY: default clean cleaner remake doc test
 
 -include .deps/*.d

@@ -146,19 +146,15 @@ tar to extract the data.
 
 OK, so you have a bunch of data files, but no recovery tool. Not so...
 
-Every file has a tarball of the recovery tool prepended, along
-with a reminder of how to extract it:
+Every file is a nested tarball containing the recovery tool:
 
-    $ head deb.tar.gz05
-    dd bs=128 skip=1 < FILE | unxz | tee gfm.tar | tar xf -
+    $ tar xvf deb.tar.gz05
+    gfm.tar.xz
+    tar: Skipping to next header
+    tar: Exiting with failure status due to previous errors
+    $ tar xf gfm.tar.xz
 
-    $ dd bs=128 skip=1 < deb.tar.gz05 | unxz | tee gfm.tar | tar xf -
-    unxz: (stdin): Compressed data is corrupt
-    1503+0 records in
-    1503+0 records out
-    192384 bytes (192 kB) copied, 0.0110278 s, 17.4 MB/s
-
-Don't worry about the error, that's just bunzip complaining about the
+Don't worry about the error, that's just tar complaining about the
 extra 'junk' at the end of the 'tarball'
 
     $ rm deb*
@@ -166,7 +162,7 @@ extra 'junk' at the end of the 'tarball'
     gfm-rc2-7-g7196cb7-dirty gfm.tar
     $ cd gfm-*
     $ ls
-    gfa.hh  gfm.cc  gpl-3.0.txt  Makefile  README.md
+    gfa.hh  gfm.cc  gpl-3.0.txt  LICENSE  Makefile  README.md
 
 This is all you need to recreate the gfm tool, and more:
 
@@ -174,11 +170,10 @@ This is all you need to recreate the gfm tool, and more:
     [....]
     $ ls
     blob.o  gfa.hh  gfm  gfm.cc  gfm.o  git.h  gpl-3.0.txt
-    Makefile  README.html  README.md  README.pdf
+    LICENSE  Makefile  README.html  README.md  README.pdf
 
 Note that this is a clone of the GFM repository:
 
     $ git status
     # On branch master
     nothing to commit (working directory clean)
-
