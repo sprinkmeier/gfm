@@ -130,7 +130,15 @@ The above examples are obviously just a start:
 
 `$ gfm mailme |  gpg > bin.tar`
 
-## VIRAL
+## Self Contained
+
+The utility contains a copy of its own git repository:
+
+    $ gfm - | tar --xz --extract --file -
+    $ cd gfm-*
+    $ make test
+
+## Viral
 
 What's the use of data without a recovery tool?
 
@@ -159,7 +167,7 @@ extra 'junk' at the end of the 'tarball'
 
     $ rm deb*
     $ ls
-    gfm-rc2-7-g7196cb7-dirty gfm.tar
+    gfm-$TAG gfm.tar
     $ cd gfm-*
     $ ls
     gfa.hh  gfm.cc  gpl-3.0.txt  LICENSE  Makefile  README.md
