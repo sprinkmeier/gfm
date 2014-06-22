@@ -28,7 +28,7 @@ default: gfm doc
 doc: $(DOC)
 
 clean:
-	-rm *.o git.h
+	-rm *.o git.h foo*
 	-rm -rf .deps
 	-rm $(DOC)
 
@@ -74,10 +74,21 @@ gfm: gfm.o  blob.o
 	@echo $@: Makefile >> .deps/$*.d
 
 
-test: gfm
+test: gfm doc
+	# contains tarball?
+	./gfm - | tar --xz --test --file -
+	# generate parity
 	./gfm foo 10 10 < gfm
-	./gfm foo | md5sum --check foo.md5
+	# parity files are tarballs?
 	tar --test --verbose --file foo00
+	# recover and verify checksum
+	./gfm foo | tee foo | md5sum --check foo.md5
+	# randomly remove files
+	rm $$(ls foo0* | shuf | head)
+	# recover again and verify
+	./gfm foo > foo_
+	cmp foo foo_
+	# clean up
 	rm foo*
 
 .PHONY: default clean cleaner remake doc test
