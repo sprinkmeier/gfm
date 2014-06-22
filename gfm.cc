@@ -682,7 +682,7 @@ int OpenFile(const std::string & filename,
         return 0;
     }
 
-    char buff[BLOCKSIZE];
+    char buff[12];
     ssize_t rc = read(fd, buff, 11);
     if (rc != (ssize_t)11)
     {
@@ -828,24 +828,25 @@ void RecoverData(const std::string & stub)
     // did we manage to open any files?
     if (!expected.fileNum)
     {
-        int fd = open(stub.c_str(),
+        int fd = (stub == "-") ? STDOUT_FILENO :
+            open(stub.c_str(),
                       O_WRONLY | O_CREAT | O_EXCL,
                       0644);
         attest(fd >= 0,
                "Unable to open %s: %d (%s)",
                stub.c_str(), errno, strerror(errno));
+        size_t s = _binary_gfm_tar_len - 0x200;
         size_t numWritten = write(
             fd,
-            &_binary_gfm_tar_start,
-            _binary_gfm_tar_len);
-        attest(numWritten == _binary_gfm_tar_len,
+            &_binary_gfm_tar_start + 0x200, s);
+        attest(numWritten == s,
                "only wrote %zd of %zd to %s",
-               numWritten, _binary_gfm_tar_len,
+               numWritten, s,
                stub.c_str());
         close(fd);
         std::cerr << "Wrote all "
-                  << _binary_gfm_tar_len
-                  << " bytes of .tar data  to "
+                  << s
+                  << " bytes of .tar.xz data to "
                   << stub << std::endl;
         exit(0);
     }
