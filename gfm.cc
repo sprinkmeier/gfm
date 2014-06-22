@@ -31,7 +31,6 @@ size_t  _binary_gfm_tar_len = blobSize();
 /// but might waste more on partial blocks
 const uint8_t BLOCKSIZE_Po2 = 12;
 const size_t  BLOCKSIZE     = 1 << BLOCKSIZE_Po2;
-const size_t  MAGIC         = 128;
 
 // Signature prepended to data and parity files.
 typedef struct _signature
@@ -41,15 +40,6 @@ typedef struct _signature
     uint8_t fileNum;
     uint8_t blocksizePo2;
 } signature;
-
-size_t blobSize()
-{
-    char * endptr = 0;
-    uint32_t s = strtol(
-        (&_binary_gfm_tar_start) + 124,
-        &endptr, 8);
-    return s + 0x200;
-}
 
 // fancy assert
 void attest(bool test, const char * epilogue = "oops", ...)
@@ -66,6 +56,17 @@ void attest(bool test, const char * epilogue = "oops", ...)
     exit(1);
 }
 
+// extract un-padded file size from v7-format tarball
+size_t blobSize()
+{
+    char * endptr = 0;
+    uint32_t s = strtol(
+        (&_binary_gfm_tar_start) + 124,
+        &endptr, 8);
+    attest(endptr && (*endptr == '\0'),
+           "unable to decode file size from tar header");
+    return s + 0x200;
+}
 
 /// Gallois Field Matrix
 class GFM
@@ -676,31 +677,28 @@ int OpenFile(const std::string & filename,
     }
 
     off_t off = lseek(fd, 124, SEEK_SET);
-    if (off != 124)
-    {
-        close(fd);
-        return 0;
-    }
+    attest((off == 124),
+           "unable to seek to file size in tar header");
 
     char buff[BLOCKSIZE];
     ssize_t rc = read(fd, buff, 11);
-    if (rc != (ssize_t)11)
-    {
-        close(fd);
-        return 0;
-    }
+    attest((rc == (ssize_t)11),
+           "unable to read file size from tar header");
     buff[11] = '\0';
 
     char * endptr = 0;
     uint32_t s = strtol(buff, &endptr, 8);
+    attest(endptr && (*endptr == '\0'),
+           "unable to decode file size from tar header");
     s += 0x200;
     off = lseek(fd, s, SEEK_SET);
-    assert(s == (uint32_t)off);
+    attest((s == (uint32_t)off),
+           "unable to seek to end of tar-blob");
 
     signature chk;
     rc = read(fd, &chk, sizeof(chk));
-    assert(rc == sizeof(chk));
-
+    attest((rc == sizeof(chk)),
+           "unable to read signature block");
     // might not know numData yet either...
     if (sig.numData == 255)
     {
