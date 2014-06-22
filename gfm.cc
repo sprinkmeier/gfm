@@ -628,12 +628,12 @@ void CreateParity(const uint8_t numData,
     {
         memset(buff[0], 0, numData * BLOCKSIZE);
         ssize_t numRead = readFully(0, buff[0], (numData * BLOCKSIZE) - 1);
+        // update the digest
+        EVP_DigestUpdate(&MD_ctx[256], buff[0], numRead);
+        // add padding to make a whole block
+        addPadding(buff[0], numRead, (numData * BLOCKSIZE) - 1);
         // calc parity
         gfm.parity(buff, BLOCKSIZE);
-
-        EVP_DigestUpdate(&MD_ctx[256], buff[0], numRead);
-
-        addPadding(buff[0], numRead, (numData * BLOCKSIZE) - 1);
 
         // write data/parity
         for (int idx = 0; idx < (numData + numParity); idx++)
