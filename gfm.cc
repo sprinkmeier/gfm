@@ -17,13 +17,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-extern char _binary_gfm_tar_start;
-extern char _binary_gfm_tar_end;
+extern const char _binary_gfm_tar_start;
+extern const char _binary_gfm_tar_end;
 
 size_t blobSize();
 size_t  _binary_gfm_tar_len = blobSize();
-//    &_binary_blob_tar_end -
-//    &_binary_blob_tar_start;
 
 /// needs to be the same for parity gerneration and recovery.
 /// Choose multiples of 512 'cos that's one disk sector.
@@ -59,13 +57,20 @@ void attest(bool test, const char * epilogue = "oops", ...)
 // extract un-padded file size from v7-format tarball
 size_t blobSize()
 {
+    size_t rawSize =
+        &_binary_gfm_tar_end -
+        &_binary_gfm_tar_start;
+
     char * endptr = 0;
     uint32_t s = strtol(
         (&_binary_gfm_tar_start) + 124,
         &endptr, 8);
     attest(endptr && (*endptr == '\0'),
            "unable to decode file size from tar header");
-    return s + 0x200;
+    s += 0x200;
+    attest((s < rawSize),
+           "unable to sensibly decode file size from tar header");
+    return s;
 }
 
 /// Gallois Field Matrix
@@ -259,7 +264,8 @@ public:
             // first reduce it to major column order
             for (int col = 0; col < numData-1; col++)
             {
-                assert(tmp[col][col]);
+                attest(tmp[col][col],
+                       "zero in major diagonal[%d] of reduced", col);
                 uint8_t ref = tmp[col][col];
                 for (int row = col+1; row < numData; row++)
                 {
@@ -280,7 +286,8 @@ public:
             // next... we'll reduce the upper triangle
             for (int col = 1; col < numData; col++)
             {
-                assert(tmp[col][col]);
+                attest(tmp[col][col],
+                       "zero in major diagonal[%d] of MCO", col);
                 uint8_t ref = tmp[col][col];
                 for (int row = 0; row < col; row++)
                 {
@@ -491,6 +498,26 @@ void writeHeader(int fd, const signature & sig, EVP_MD_CTX & ctx)
            == (ssize_t)sizeof(sig),
            "Unable to write signature");
     EVP_DigestUpdate(&ctx, &sig, sizeof(sig));
+
+    static ssize_t len = 0;
+    static char  * pad = 0;
+    if (!pad)
+    {
+        len = _binary_gfm_tar_len + sizeof(sig) + BLOCKSIZE - 1;
+        DMP(_binary_gfm_tar_len);
+        //DMP(sizeof(sig));
+        //DMP(BLOCKSIZE);
+        len &= ~(BLOCKSIZE - 1);
+        len -= _binary_gfm_tar_len + sizeof(sig);
+        //DMP(len + _binary_gfm_tar_len + sizeof(sig));
+        //DMPX(len + _binary_gfm_tar_len + sizeof(sig));
+        //DMP(len);
+        pad = (char*)calloc(len,1);
+        attest(pad, "unable to calloc pad");
+    }
+    attest(write(fd,pad, len) == len,
+           "Unable to write pad");
+    EVP_DigestUpdate(&ctx, pad, len);
 }
 
 ssize_t readFully(int fd, void * buff, ssize_t len)
@@ -516,6 +543,7 @@ ssize_t readFully(int fd, void * buff, ssize_t len)
 
 void addPadding(uint8_t * buff, ssize_t numRead, ssize_t expected)
 {
+    //DMP(numRead);
     // is the buffer full?
     if (numRead == expected)
     {
@@ -525,6 +553,7 @@ void addPadding(uint8_t * buff, ssize_t numRead, ssize_t expected)
     }
     // how many bytes are missing?
     ssize_t missing = (expected - numRead);
+    //DMP(missing);
     // sanity check.....
     assert(missing > 0);
 
@@ -549,18 +578,24 @@ size_t removePadding(uint8_t * buff, size_t buffSize)
     if (flag == 0)
     {
         // no padding to remove
+        DMP(buffSize);
         return buffSize;
     }
 
     // block missing < 128 bytes?
     if (flag < 0x80)
     {
+        DMP(buffSize - flag);
         return buffSize - flag;
     }
 
     // missing lots!
     uint32_t * buff32 = (uint32_t *)buff;
-    return buffSize - buff32[(buffSize/4)-2];
+    uint32_t missing = buff32[(buffSize/4)-2];
+    buffSize -= missing;
+    DMP(missing);
+    DMP(buffSize);
+    return buffSize;
 }
 
 // print out the MD checksums
@@ -717,6 +752,12 @@ int OpenFile(const std::string & filename,
         return 0;
     }
 
+    // see to next BLOCKSIZE boundary
+    off += sizeof(signature) + BLOCKSIZE - 1;
+    off &= ~(BLOCKSIZE - 1);
+    attest((lseek(fd, off, SEEK_SET) == off),
+           "unable to seek to end of tar-blob (0x%x): %m", off);
+
     return fd;
 }
 
@@ -826,24 +867,26 @@ void RecoverData(const std::string & stub)
     // did we manage to open any files?
     if (!expected.fileNum)
     {
-        int fd = open(stub.c_str(),
-                      O_WRONLY | O_CREAT | O_EXCL,
-                      0644);
+        int fd = (stub == "-")
+            ? STDOUT_FILENO
+            : open(stub.c_str(),
+                   O_WRONLY | O_CREAT | O_EXCL,
+                   0644);
         attest(fd >= 0,
                "Unable to open %s: %d (%s)",
                stub.c_str(), errno, strerror(errno));
+        size_t s = _binary_gfm_tar_len - 0x200;
         size_t numWritten = write(
             fd,
-            &_binary_gfm_tar_start,
-            _binary_gfm_tar_len);
-        attest(numWritten == _binary_gfm_tar_len,
+            &_binary_gfm_tar_start + 0x200, s);
+        attest(numWritten == s,
                "only wrote %zd of %zd to %s",
-               numWritten, _binary_gfm_tar_len,
+               numWritten, s,
                stub.c_str());
         close(fd);
         std::cerr << "Wrote all "
-                  << _binary_gfm_tar_len
-                  << " bytes of .tar data  to "
+                  << s
+                  << " bytes of .tar.xz data to "
                   << stub << std::endl;
         exit(0);
     }
@@ -899,7 +942,7 @@ int main(int argc, char ** argv)
         gfa.BIT();
         GFM::BIT();
         std::cerr << "BIT OK!" << std::endl;
-    }
+   }
 
     // recovery.
     // Specify the file stub
