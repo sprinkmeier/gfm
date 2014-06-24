@@ -143,6 +143,23 @@ public:
     //  data [0..len-1][0..(numData+numParity-1]
     inline void parity(uint8_t ** data, size_t len)
         {
+/*
+            OLD AND INFERIOR
+            based on the original paper
+
+http://web.eecs.utk.edu/~plank/plank/papers/CS-96-332.pdf
+
+            [1  0   0 ...
+            [0  1   0 ...     numData x numData identity matrix
+            [0  0   1 ...
+            [...              last row parity, ends in 1
+            [1  1   1 ...     first parity, XOR all (i.e. RAID5)
+            [1  2   3 ...
+            [1 2^2 3^2
+            [1 2^3 3^3
+            [...
+
+*/
             // clear all the rows corresponding to the parity bytes
             memset(data[numData], 0, (len * numParity));
             // process the parity bytes one at a time
