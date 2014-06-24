@@ -576,7 +576,10 @@ void PrintMD(FILE * file,
     {
         fprintf(file, "%02x", (digest[i] & 0xFF));
     }
-    fprintf(file, "  %s\n", filename.c_str());
+    size_t found = filename.find_last_of("/\\");
+    // make sure fn doesn't get gc'ed which fn.c_str is in use!
+    std::string fn(filename.substr(found+1));
+    fprintf(file, "  %s\n", fn.c_str());
 
     EVP_MD_CTX_cleanup(&ctx);
 }
