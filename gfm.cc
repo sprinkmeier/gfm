@@ -82,27 +82,104 @@ public:
 
             // create an array to calculate the parity
             d = makeArray(rows, numData);
+/*
+            NEW AND IMPROVED
+            based on original and updated papers
 
-            // the identity part of the matrix.
-            for (int idx = 0 ; idx < numData; idx++)
+http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
+http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
+
+            Start with a "Vandermode" matrix, which is guaranteed
+            invertible if you reduce and numParity rows
+
+            [0^0 0^1 0^2 ...   [1 0 0
+            [1^0 1^1 1^2 ...   [1 1 1
+            [2^0 2^1 2^2 ...   [1 2
+            [3^0 3^1 3^2 ...   [1 3
+            [4^0 4^1 4^2 ...   [1 4
+
+*/
+            // first row, add 1 (makeArray initialises to)
+            d[0][0] = 1;
+            // second row all 1
+            for (int col = 0; col < numData; col++)
             {
-                d[idx][idx] = 1;
+                d[1][col] = 1;
             }
-
-            // first column of the parity part of the matrix, all 1
-            for (int row = numData; row < rows; row++)
+            // third and successive rows
+            for (int row = 2; row < rows; row++)
             {
+                // first column, all 1
                 d[row][0] = 1;
-            }
-
-            // calculte the rest of the parity part of the matrix
-            for (int col = 1; col < numData; col++)
-            {
-                uint8_t base = col+1;
-                d[numData][col] = 1;
-                for (int row = numData+1; row < rows; row++)
+                // second column, row number
+                d[row][1] = row;
+                // rest of the columns, powers of "row"
+                for (int col = 2; col < numData; col++)
                 {
-                    d[row][col] = gfa.mult(base, d[row-1][col]);
+                    d[row][col] = gfa.mult(d[row][col-1], row);
+                }
+            }
+//            print("Vandermonde");
+/*
+            now we have to apply "elementary operations"
+            to reduce the top part into an identity matrix
+            first row is already in the right format
+*/
+            for (int row = 1; row < numData; ++row)
+            {
+                // we need to make d[row][row] == 1 and
+                // the rest of row == 0 without disturbing the previous
+                // rows.
+                // first, ensure that d[row][row] is non-zero,
+                // swap with a later column if needed
+                if (!d[row][row])
+                {
+                    for (int col = row+1; col < numData; ++col)
+                    {
+                        if (!d[row][col]) continue;
+                        // found a candidate column to swap with
+                        for (int idx = row; idx < rows; ++idx)
+                        {
+                            uint8_t tmp = d[idx][row];
+                            d[idx][row] = d[idx][col];
+                            d[idx][col] = tmp;
+                        }
+                        break;
+                    }
+//                    print("swapped...");
+                }
+                // scale if necessary to ensure a major diagonal of 1
+                if (d[row][row] != 1)
+                {
+                    uint8_t inv = gfa.div(1,d[row][row]);
+                    for (int col = 0; col < numData; ++col)
+                    {
+                        d[row][col] = gfa.mult(inv,d[row][col]);
+                    }
+//                    print("scaled...");
+                }
+                // now zero-out the other columns
+                for (int col = 0; col < numData; ++col)
+                {
+                    // leave the major diagonal alone
+                    if (row == col) continue;
+                    // already zero?
+                    if (!d[row][col]) continue;
+                    // take away multiples of the row'th column
+                    uint8_t mult = d[row][col];
+                    for (int idx = row; idx < rows; ++idx)
+                    {
+                        d[idx][col] ^= gfa.mult(mult,d[idx][row]);
+                    }
+                }
+//                print("reduced...");
+            }
+            // make sure we got it right...
+            for (int row = 0; row < numData; ++row)
+            {
+                for (int col = 0; col < numData; ++col)
+                {
+                    assert(d[row][col] == (row == col) ? 1 : 0);
                 }
             }
         };
@@ -143,23 +220,6 @@ public:
     //  data [0..len-1][0..(numData+numParity-1]
     inline void parity(uint8_t ** data, size_t len)
         {
-/*
-            OLD AND INFERIOR
-            based on the original paper
-
-http://web.eecs.utk.edu/~plank/plank/papers/CS-96-332.pdf
-
-            [1  0   0 ...
-            [0  1   0 ...     numData x numData identity matrix
-            [0  0   1 ...
-            [...              last row parity, ends in 1
-            [1  1   1 ...     first parity, XOR all (i.e. RAID5)
-            [1  2   3 ...
-            [1 2^2 3^2
-            [1 2^3 3^3
-            [...
-
-*/
             // clear all the rows corresponding to the parity bytes
             memset(data[numData], 0, (len * numParity));
             // process the parity bytes one at a time
