@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <iostream>
 
+#define TAG     std::cerr << __FILE__ "@" << __LINE__ << std::endl
 #define DMP(x)  std::cerr << #x ": " << (x) << std::endl
 #define DMPX(x) std::cerr << #x ": 0x" << std::hex << ((int)(x)) << std::dec << std::endl
 

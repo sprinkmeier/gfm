@@ -28,7 +28,7 @@ default: gfm doc
 doc: $(DOC)
 
 clean:
-	-rm *.o git.h
+	-rm *.o git.h foo*
 	-rm -rf .deps
 	-rm $(DOC)
 

@@ -88,27 +88,104 @@ public:
 
             // create an array to calculate the parity
             d = makeArray(rows, numData);
+/*
+            NEW AND IMPROVED
+            based on original and updated papers
 
-            // the identity part of the matrix.
-            for (int idx = 0 ; idx < numData; idx++)
+http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
+http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
+
+            Start with a "Vandermode" matrix, which is guaranteed
+            invertible if you reduce and numParity rows
+
+            [0^0 0^1 0^2 ...   [1 0 0
+            [1^0 1^1 1^2 ...   [1 1 1
+            [2^0 2^1 2^2 ...   [1 2
+            [3^0 3^1 3^2 ...   [1 3
+            [4^0 4^1 4^2 ...   [1 4
+
+*/
+            // first row, add 1 (makeArray initialises to)
+            d[0][0] = 1;
+            // second row all 1
+            for (int col = 0; col < numData; col++)
             {
-                d[idx][idx] = 1;
+                d[1][col] = 1;
             }
-
-            // first column of the parity part of the matrix, all 1
-            for (int row = numData; row < rows; row++)
+            // third and successive rows
+            for (int row = 2; row < rows; row++)
             {
+                // first column, all 1
                 d[row][0] = 1;
-            }
-
-            // calculte the rest of the parity part of the matrix
-            for (int col = 1; col < numData; col++)
-            {
-                uint8_t base = col+1;
-                d[numData][col] = 1;
-                for (int row = numData+1; row < rows; row++)
+                // second column, row number
+                d[row][1] = row;
+                // rest of the columns, powers of "row"
+                for (int col = 2; col < numData; col++)
                 {
-                    d[row][col] = gfa.mult(base, d[row-1][col]);
+                    d[row][col] = gfa.mult(d[row][col-1], row);
+                }
+            }
+//            print("Vandermonde");
+/*
+            now we have to apply "elementary operations"
+            to reduce the top part into an identity matrix
+            first row is already in the right format
+*/
+            for (int row = 1; row < numData; ++row)
+            {
+                // we need to make d[row][row] == 1 and
+                // the rest of row == 0 without disturbing the previous
+                // rows.
+                // first, ensure that d[row][row] is non-zero,
+                // swap with a later column if needed
+                if (!d[row][row])
+                {
+                    for (int col = row+1; col < numData; ++col)
+                    {
+                        if (!d[row][col]) continue;
+                        // found a candidate column to swap with
+                        for (int idx = row; idx < rows; ++idx)
+                        {
+                            uint8_t tmp = d[idx][row];
+                            d[idx][row] = d[idx][col];
+                            d[idx][col] = tmp;
+                        }
+                        break;
+                    }
+//                    print("swapped...");
+                }
+                // scale if necessary to ensure a major diagonal of 1
+                if (d[row][row] != 1)
+                {
+                    uint8_t inv = gfa.div(1,d[row][row]);
+                    for (int col = 0; col < numData; ++col)
+                    {
+                        d[row][col] = gfa.mult(inv,d[row][col]);
+                    }
+//                    print("scaled...");
+                }
+                // now zero-out the other columns
+                for (int col = 0; col < numData; ++col)
+                {
+                    // leave the major diagonal alone
+                    if (row == col) continue;
+                    // already zero?
+                    if (!d[row][col]) continue;
+                    // take away multiples of the row'th column
+                    uint8_t mult = d[row][col];
+                    for (int idx = row; idx < rows; ++idx)
+                    {
+                        d[idx][col] ^= gfa.mult(mult,d[idx][row]);
+                    }
+                }
+//                print("reduced...");
+            }
+            // make sure we got it right...
+            for (int row = 0; row < numData; ++row)
+            {
+                for (int col = 0; col < numData; ++col)
+                {
+                    assert(d[row][col] == (row == col) ? 1 : 0);
                 }
             }
         };
@@ -543,7 +620,6 @@ ssize_t readFully(int fd, void * buff, ssize_t len)
 
 void addPadding(uint8_t * buff, ssize_t numRead, ssize_t expected)
 {
-    //DMP(numRead);
     // is the buffer full?
     if (numRead == expected)
     {
@@ -553,7 +629,6 @@ void addPadding(uint8_t * buff, ssize_t numRead, ssize_t expected)
     }
     // how many bytes are missing?
     ssize_t missing = (expected - numRead);
-    //DMP(missing);
     // sanity check.....
     assert(missing > 0);
 
@@ -578,14 +653,14 @@ size_t removePadding(uint8_t * buff, size_t buffSize)
     if (flag == 0)
     {
         // no padding to remove
-        DMP(buffSize);
+//        DMP(buffSize);
         return buffSize;
     }
 
     // block missing < 128 bytes?
     if (flag < 0x80)
     {
-        DMP(buffSize - flag);
+//        DMP(buffSize - flag);
         return buffSize - flag;
     }
 
@@ -593,8 +668,8 @@ size_t removePadding(uint8_t * buff, size_t buffSize)
     uint32_t * buff32 = (uint32_t *)buff;
     uint32_t missing = buff32[(buffSize/4)-2];
     buffSize -= missing;
-    DMP(missing);
-    DMP(buffSize);
+//    DMP(missing);
+//    DMP(buffSize);
     return buffSize;
 }
 
@@ -612,7 +687,10 @@ void PrintMD(FILE * file,
     {
         fprintf(file, "%02x", (digest[i] & 0xFF));
     }
-    fprintf(file, "  %s\n", filename.c_str());
+    size_t found = filename.find_last_of("/\\");
+    // make sure fn doesn't get gc'ed which fn.c_str is in use!
+    std::string fn(filename.substr(found+1));
+    fprintf(file, "  %s\n", fn.c_str());
 
     EVP_MD_CTX_cleanup(&ctx);
 }
@@ -663,12 +741,12 @@ void CreateParity(const uint8_t numData,
     {
         memset(buff[0], 0, numData * BLOCKSIZE);
         ssize_t numRead = readFully(0, buff[0], (numData * BLOCKSIZE) - 1);
-        // update the digest
-        EVP_DigestUpdate(&MD_ctx[256], buff[0], numRead);
-        // add padding to make a whole block
         addPadding(buff[0], numRead, (numData * BLOCKSIZE) - 1);
         // calc parity
         gfm.parity(buff, BLOCKSIZE);
+
+        EVP_DigestUpdate(&MD_ctx[256], buff[0], numRead);
+
 
         // write data/parity
         for (int idx = 0; idx < (numData + numParity); idx++)
@@ -715,7 +793,7 @@ int OpenFile(const std::string & filename,
     attest((off == 124),
            "unable to seek to file size in tar header");
 
-    char buff[BLOCKSIZE];
+    char buff[12];
     ssize_t rc = read(fd, buff, 11);
     attest((rc == (ssize_t)11),
            "unable to read file size from tar header");
@@ -942,7 +1020,7 @@ int main(int argc, char ** argv)
         gfa.BIT();
         GFM::BIT();
         std::cerr << "BIT OK!" << std::endl;
-   }
+    }
 
     // recovery.
     // Specify the file stub
