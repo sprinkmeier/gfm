@@ -581,7 +581,7 @@ void writeHeader(int fd, const signature & sig, EVP_MD_CTX & ctx)
     if (!pad)
     {
         len = _binary_gfm_tar_len + sizeof(sig) + BLOCKSIZE - 1;
-        DMP(_binary_gfm_tar_len);
+        //DMP(_binary_gfm_tar_len);
         //DMP(sizeof(sig));
         //DMP(BLOCKSIZE);
         len &= ~(BLOCKSIZE - 1);
