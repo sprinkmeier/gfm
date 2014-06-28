@@ -1062,11 +1062,15 @@ int main(int argc, char ** argv)
 
     if (getenv("DMP"))
     {
-        std::string filename = StripDir(argv[argc > 1 ? 1 : 0]) + ".dump";
+        std::string filename = StripDir(argv[argc > 1 ? 1 : 0]);
+        {
+            std::string fn = filename + ".gfa";
+            std::ofstream os(fn.c_str());
+            GFA gfa;
+            gfa.operator<<(os);
+        }
+        filename += ".gfm";
         dumpFile.open(filename.c_str());
-        GFA gfa;
-        gfa.operator<<(dumpFile);
-//        dumpFile << gfa;
     }
 
     // recovery.
