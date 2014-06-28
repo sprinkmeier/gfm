@@ -148,11 +148,32 @@ public:
                 os << '\t' << (unsigned)gflog[i];
             }
             os << std::endl;
-            for (unsigned i = 0; i < 256; ++i)
+            for (unsigned i = 0; i < 255; ++i)
             {
                 os << '\t' << (unsigned)gfilog[i];
             }
-            os << std::endl;
+            os << "\tX" << std::endl;
+
+            os << "mult" << std::endl;
+            for (unsigned i = 1; i < 256; ++i)
+            {
+                for (unsigned j = 1; j < 256; ++j)
+                {
+                    os << '\t' << (unsigned)mult(i,j);
+                }
+                os << std::endl;
+            }
+
+            os << "div" << std::endl;
+            for (unsigned i = 1; i < 256; ++i)
+            {
+                for (unsigned j = 1; j < 256; ++j)
+                {
+                    os << '\t' << (unsigned)div(i,j);
+                }
+                os << std::endl;
+            }
+
             return os;
         };
 

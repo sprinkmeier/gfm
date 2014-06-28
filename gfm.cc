@@ -90,7 +90,7 @@ public:
             attest(rows <= 250, "Unable to create %i rows, limited to 250", rows);
 
             // create an array to calculate the parity
-            d = makeArray(rows, numData);
+            d = makeArray(rows, numData + 1);
 /*
             NEW AND IMPROVED
             based on original and updated papers
@@ -128,7 +128,7 @@ http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
                     d[row][col] = gfa.mult(d[row][col-1], row);
                 }
             }
-//            print("Vandermonde");
+            print("Vandermonde", dumpFile);
 /*
             now we have to apply "elementary operations"
             to reduce the top part into an identity matrix
@@ -183,12 +183,22 @@ http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
                 }
 //                print("reduced...");
             }
+            print("Parity", dumpFile);
             // make sure we got it right...
+            // identity matrix at the top
             for (int row = 0; row < numData; ++row)
             {
                 for (int col = 0; col < numData; ++col)
                 {
                     assert(d[row][col] == (row == col) ? 1 : 0);
+                }
+            }
+            // the rest must not be zero
+            for (int row = numData; row < rows; ++row)
+            {
+                for (int col = 0; col < numData; ++col)
+                {
+                    assert(d[row][col]);
                 }
             }
         };
@@ -267,45 +277,57 @@ http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
         }
 
     // mark a data (or parity) set as failed.
-    // all vaid rows have a 0 or 1 in the first column
-    // so use 0xFF as a marker
     void failData(uint8_t idx)
         {
             assert(idx < (numData + numParity));
-            d[idx][0] = -1;
+            d[idx][numData] = -1;
         }
     void failParity(uint8_t idx)
         {
             failData(idx + numData);
         }
+    bool failed(uint8_t idx)
+        {
+            // -1 == failed
+            if (d[idx][numData] == (uint8_t)-1) return true;
+            // must be -1 or 0 ...
+            assert(!d[idx][numData]);
+            return false;
+        }
+
 
     // print out the D matrix
-    void print(const char * msg)
+    void print(const char * msg,
+               std::ostream & os = std::cerr)
         {
-            print(msg, d, numData + numParity, numData);
+            print(msg, d, numData + numParity, numData, os);
         }
 
     // print out a given matrix
     static void print(const char * msg,
                       uint8_t ** m,
                       uint8_t rows,
-                      uint8_t cols)
+                      uint8_t cols,
+                      std::ostream & os = std::cerr)
         {
-            std::cerr << msg << '\n';
+            if (!os) return;
+            os << msg << '\n';
             for (int row = 0; row < rows; row++)
             {
                 for (int col = 0; col < cols; col++)
                 {
-                    std::cerr << '\t' << (int)m[row][col];
+                    os << '\t' << (int)m[row][col];
                 }
-                std::cerr << '\n';
+                os << '\n';
             }
-            std::cerr << std::endl;
+            os << std::endl;
         }
 
     // generate the recovery matrix
     uint8_t ** recovery()
         {
+// print numData+1 cols            print("Remaining", dumpFile);
+
             // create an array to hold the recovery matrix
             uint8_t ** ret = makeArray(numData, numData + 1);
             // create an identity matrix...
@@ -326,18 +348,20 @@ http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
                 // assume the row has not failed (i.e. just copy it)
                 uint8_t cpy = row;
                 // if the row has failed ...
-                if (d[cpy][0] == (uint8_t)-1)
+                if (failed(cpy))
                 {
                     // make sure we haven't run out of redundancy..
                     assert(tst > row);
                     // search for a non-failed row to replace it
-                    while(--tst && (d[tst][0] == (uint8_t)-1));
+                    while(--tst && failed(tst))
                     cpy = tst;
                 }
                 // copy the row
                 memcpy(tmp[row], d[cpy], numData * sizeof(uint8_t));
                 ret[row][numData] = cpy;
             }
+
+            print("Recovery", tmp, numData, numData, dumpFile);
 
             // OK.... now I have to do a gaussian elimination on the tmp matrix
 
@@ -363,6 +387,8 @@ http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
                 }
             }
 
+            print("MCO", ret, numData, numData+1, dumpFile);
+
             // next... we'll reduce the upper triangle
             for (int col = 1; col < numData; col++)
             {
@@ -385,6 +411,8 @@ http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
                 }
             }
 
+            print("UT", ret, numData, numData, dumpFile);
+
             // now normalise
             for (int idx = 0; idx < numData; idx++)
             {
@@ -393,12 +421,14 @@ http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
                 MulyRowBy(ret, idx, mult);
             }
 
+            print("Norm", ret, numData, numData, dumpFile);
 
             // OK.... now if we got that right then
             // tmp * ret = ret * tmp = I (mostly)
             // for failed rows, all bets are off
             for (int row = 0; row < numData; row++)
             {
+                bool f = failed(row);
                 for (int col = 0; col < numData; col++)
                 {
                     uint8_t a = 0;
@@ -410,11 +440,11 @@ http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
                     }
                     // assert((tmp * ret) == (ret * tmp))
                     assert(a == b);
-                    // unless it's a failed row, assert ((ret * tmp) == I)
-                    if (d[row][0] != (uint8_t)-1)
-                    {
-                        assert (a == (row == col) ? 1 : 0);
-                    }
+                    // non-failed rows must be from the identity matrix
+                    // failed rows must be fully populated
+                    //a = ret[row][col];
+//                    assert(f ? a : (a == (row == col) ? 1 : 0));
+                    assert(f || (a == (row == col) ? 1 : 0));
                 }
             }
             // get rid of the temp matrix and return the recovery one
