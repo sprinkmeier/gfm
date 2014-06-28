@@ -88,7 +88,7 @@ public:
         {
             // (a / 0) = ERROR for all a
             assert(b);
-            // (0 / b) = 0 for all b
+            // (0 / b) = 0 for all b != 0
             if(!a)
             {
                 return 0;
@@ -134,6 +134,28 @@ private:
         };
 
 public:
+    std::ostream & operator<<(std::ostream & os)
+        {
+            os << "log/ilog" << std::endl;
+            for (unsigned i = 0; i < 256; ++i)
+            {
+                os << '\t' << (unsigned)i;
+            }
+            os << std::endl << "\tX";
+            //log(0) ==-inf, so skip that one
+            for (unsigned i = 1; i < 256; ++i)
+            {
+                os << '\t' << (unsigned)gflog[i];
+            }
+            os << std::endl;
+            for (unsigned i = 0; i < 256; ++i)
+            {
+                os << '\t' << (unsigned)gfilog[i];
+            }
+            os << std::endl;
+            return os;
+        };
+
     // built-in test
     void BIT()
         {
