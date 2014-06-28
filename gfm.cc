@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <openssl/evp.h>
@@ -19,6 +20,8 @@
 
 extern const char _binary_gfm_tar_start;
 extern const char _binary_gfm_tar_end;
+
+std::ofstream dumpFile;
 
 size_t blobSize();
 size_t  _binary_gfm_tar_len = blobSize();
@@ -492,9 +495,9 @@ public:
     static void BIT()
         {
             // test 25 data blocks (64K each) with 25 parity blocks
-            const uint8_t numData   =  25;
-            const uint8_t numParity =  25;
-            const size_t blockSize = 64 * 1024;
+            const uint8_t numData   = 25;
+            const uint8_t numParity = 25;
+            const size_t blockSize  = 64 * 1024;
 
             GFM gfm(numData, numParity);
 
@@ -673,6 +676,13 @@ size_t removePadding(uint8_t * buff, size_t buffSize)
     return buffSize;
 }
 
+std::string StripDir(const std::string & filename)
+{
+    size_t found = filename.find_last_of("/\\");
+    // make sure fn doesn't get gc'ed which fn.c_str is in use!
+    return filename.substr(found+1);
+}
+
 // print out the MD checksums
 void PrintMD(FILE * file,
 	     const std::string & filename,
@@ -687,9 +697,8 @@ void PrintMD(FILE * file,
     {
         fprintf(file, "%02x", (digest[i] & 0xFF));
     }
-    size_t found = filename.find_last_of("/\\");
     // make sure fn doesn't get gc'ed which fn.c_str is in use!
-    std::string fn(filename.substr(found+1));
+    std::string fn = StripDir(filename);
     fprintf(file, "  %s\n", fn.c_str());
 
     EVP_MD_CTX_cleanup(&ctx);
@@ -893,6 +902,7 @@ void RecoverData(const uint8_t numData,
     }
 
     free(buff);
+    free(rcvr);
 }
 
 /**
@@ -900,7 +910,7 @@ void RecoverData(const uint8_t numData,
 */
 void RecoverData(const std::string & stub)
 {
-    int fds[250];
+    int fds[250] = {0,};
 
     // use this to make sure all the files have the same
     // parameters
@@ -1012,14 +1022,21 @@ void rtfm(const std::string & prog)
 
 int main(int argc, char ** argv)
 {
-    // Execure built-in test if requested
-    if (getenv("BIT"))
+    // Execute built-in test, verbose if requested
     {
-        std::cerr << "BIT ..." << std::endl;
-        GFA gfa;
-        gfa.BIT();
+        bool bit = !!getenv("BIT");
+        if(bit) std::cerr << "BIT ..." << std::endl;
         GFM::BIT();
-        std::cerr << "BIT OK!" << std::endl;
+        if(bit) std::cerr << "BIT OK!" << std::endl;
+    }
+
+    if (getenv("DMP"))
+    {
+        std::string filename = StripDir(argv[argc > 1 ? 1 : 0]) + ".dump";
+        dumpFile.open(filename.c_str());
+        GFA gfa;
+        gfa.operator<<(dumpFile);
+//        dumpFile << gfa;
     }
 
     // recovery.

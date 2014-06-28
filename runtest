@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+
+COUNT=${COUNT:-100}
+NUM_DATA=${NUM_DATA:-100}
+NUM_PARITY=${NUM_PARITY:-100}
+
+dd if=/dev/urandom bs=1024 count=${COUNT} 2> /dev/null | gfm foo ${NUM_DATA} ${NUM_PARITY}
+gfm ./foo | md5sum --status --check foo.md5 
+sed -n -i '/-/p' foo.md5
+for VIC in $(ls foo[0-9a-f][0-9a-f] | shuf | head -${NUM_PARITY})
+do
+	rm ${VIC}
+	gfm ./foo | md5sum --status --check foo.md5 
+done
+rm foo*
+
