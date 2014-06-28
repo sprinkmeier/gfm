@@ -902,6 +902,7 @@ void RecoverData(const uint8_t numData,
     }
 
     free(buff);
+    free(rcvr);
 }
 
 /**
@@ -909,7 +910,7 @@ void RecoverData(const uint8_t numData,
 */
 void RecoverData(const std::string & stub)
 {
-    int fds[250];
+    int fds[250] = {0,};
 
     // use this to make sure all the files have the same
     // parameters
