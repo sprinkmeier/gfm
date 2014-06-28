@@ -20,8 +20,11 @@ LDLIBS += $(shell pkg-config --libs openssl)
 GIT_TAG=gfm-$(shell git describe --tags --dirty --long)
 
 CXXFLAGS += -Wall -Wextra -Werror
+ifdef DEBUG
+CXXFLAGS += -g
+else
 CXXFLAGS += -O3
-#CXXFLAGS += -g
+endif
 
 default: gfm doc
 
