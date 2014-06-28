@@ -350,10 +350,12 @@ http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf
                 // if the row has failed ...
                 if (failed(cpy))
                 {
-                    // make sure we haven't run out of redundancy..
-                    assert(tst > row);
                     // search for a non-failed row to replace it
-                    while(--tst && failed(tst))
+                    while(failed(--tst))
+                    {
+                        // make sure we haven't run out of redundancy..
+                        assert(tst > (row + 1));
+                    }
                     cpy = tst;
                 }
                 // copy the row
