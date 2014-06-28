@@ -1055,11 +1055,11 @@ void rtfm(const std::string & prog)
 int main(int argc, char ** argv)
 {
     // Execute built-in test, verbose if requested
+    if(getenv("BIT"))
     {
-        bool bit = !!getenv("BIT");
-        if(bit) std::cerr << "BIT ..." << std::endl;
+        std::cerr << "BIT ..." << std::endl;
         GFM::BIT();
-        if(bit) std::cerr << "BIT OK!" << std::endl;
+        std::cerr << "BIT OK!" << std::endl;
     }
 
     if (getenv("DMP"))
