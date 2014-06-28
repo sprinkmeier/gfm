@@ -2,9 +2,9 @@
 
 set -e
 
-COUNT=${COUNT:-100}
+COUNT=${COUNT:-10}
 NUM_DATA=${NUM_DATA:-100}
-NUM_PARITY=${NUM_PARITY:-100}
+NUM_PARITY=${NUM_PARITY:-150}
 
 dd if=/dev/urandom bs=1024 count=${COUNT} 2> /dev/null | gfm foo ${NUM_DATA} ${NUM_PARITY}
 gfm ./foo | md5sum --status --check foo.md5 
@@ -15,4 +15,6 @@ do
 	gfm ./foo | md5sum --status --check foo.md5 
 done
 rm foo*
+
+echo "OK: (${NUM_DATA} + ${NUM_PARITY}) x ${COUNT} k"
 
