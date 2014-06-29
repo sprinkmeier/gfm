@@ -77,7 +77,7 @@ gfm: gfm.o  blob.o
 	@echo $@: Makefile >> .deps/$*.d
 
 
-test: gfm doc
+check: gfm doc
         # built-in-test and check contained tarball
 	BIT=1 ./gfm - | tar --xz --test --file -
         # generate parity
@@ -94,6 +94,6 @@ test: gfm doc
         # clean up
 	rm foo*
 
-.PHONY: default clean cleaner remake doc test
+.PHONY: default clean cleaner remake doc check
 
 -include .deps/*.d
