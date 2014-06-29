@@ -1,12 +1,14 @@
 # gfm: Gallois Field Matrix - based encoder
 
-This utiity uses Reed-Solomon coding to provide fault tolerant data storage.
+This utility uses Reed-Solomon coding to provide fault tolerant data storage.
 
 This program is based on two papers,
-*H. Peter Anvin, 'The mathematics of RAID-6', Decemer 2004*
+*H. Peter Anvin, 'The mathematics of RAID-6', December 2004*
 and
 *James S. Plank, [A Tutorial on Reed-Solomon Coding for Fault-Tolerance in
-RAID-like Systems](http://www.cs.utk.edu/~plank/plank/papers/CS-96-332.html)*.
+RAID-like Systems](http://www.cs.utk.edu/~plank/plank/papers/CS-96-332.html)*
+and
+*[Note: Correction to the 1997 Tutorial on Reed-Solomon Coding](http://web.eecs.utk.edu/~plank/plank/papers/CS-03-504.pdf)*.
 
 The idea is to take a stream of data and store it in a number of files
 while calculating and adding in parity data.
@@ -17,9 +19,11 @@ Provided sufficient files arrive intact the original data stream can
 be fully recovered.
 
 split CriticalData into 10 data files with 5 parity files
+
     $ gfm crit 10 5 < CriticalData
 
 the created files:
+
     $ ls
     crit00  crit03  crit06  crit09  crit0c  CriticalData
     crit01  crit04  crit07  crit0a  crit0d  crit.md5
@@ -33,7 +37,7 @@ These are the 'parity' files.
 In practice 'data' and 'parity' files are interchangeable when it
 comes to data recovery.
 
-The md5 file contains the MD5 checksumsn of the original data
+The md5 file contains the MD5 checksums of the original data
 and the created files:
 
     $ gfm crit | md5sum --check crit.md5
@@ -185,3 +189,37 @@ Note that this is a clone of the GFM repository:
     $ git status
     # On branch master
     nothing to commit (working directory clean)
+
+## Debugging, Diagnosing ...
+
+**gfm** has a built-in-test mode that is activated by setting the
+environment variable **BIT**:
+
+    $ BIT=1 gfm
+    BIT ...
+    BIT OK!
+    [..]
+
+There is also a diagnostic mode that dumps details about the
+Gallois Fields, Parity and Recovery matrices:
+
+    $ DMP=1 gfm
+    $ ls
+    gfm.gfa  gfm.gfm
+
+The generated files don't make much sense without reading the papers first.
+
+Once you've recovered the build environment you can run the usual *make check*:
+
+    $ make check
+
+Check the comments in the *Makefile* to see what it does.
+If the test passes *make* will exit with the usual return code
+of 0 after cleaning up all the files generated for the test.
+If it fails the files will be left behind to allow further testing.
+
+There us also a test script that runs a more extensive test:
+
+    $ ./runtest
+
+This runs a far more extensive version of the *make check* test.
